@@ -2,6 +2,7 @@
 // Uses OpenRouter API with Gemini 3 Pro Image (Nano Banana Pro)
 
 import { createClient } from '@supabase/supabase-js';
+import { JUICEBOX_PRODUCT, JUICEBOX_LOGO } from './reference-images.js';
 
 const supabaseUrl = 'https://rpqbjfbkrkgnrebcysta.supabase.co';
 const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
@@ -90,21 +91,25 @@ export default async function handler(req, res) {
     
     const garnishes = flavors.map(f => garnishMap[f] || f).join(', ');
 
-    const prompt = `Generate an image: Professional product promotional poster for JuiceBox "${name}" Limited Edition.
+    const prompt = `Generate a professional product promotional poster for JuiceBox "${name}" Limited Edition.
 
-IMPORTANT: At the TOP of the image, include a centered "JuiceBox Limited" logo/text banner in elegant white typography with subtle outline.
+I'm providing two reference images:
+1. The JuiceBox bag-in-box product packaging (dark grey with white branding, red tap)
+2. The "JuiceBox Limited" logo that should appear at the TOP of the generated image
 
-Scene: elegant garden terrace, bright daylight, sun-drenched outdoor luxury atmosphere, vibrant natural light, refreshing premium exclusive summery mood.
+Create an image with:
+- The "JuiceBox Limited" logo at the TOP (use the provided logo as reference)
+- A tall faceted glass with ${beverageColor} "${name}" beverage with ice cubes, dynamic splash effect
+- Floating garnishes: ${garnishes} around the glass
+- The JuiceBox bag-in-box container (use the provided product image as reference) tilted behind the glass
+- Elegant garden terrace setting, bright daylight, premium summery mood
+- Product name "${name}" at the bottom in bold elegant typography
 
-Central subject: A tall faceted glass with ${beverageColor} "${name}" beverage with ice cubes, dynamic splash effect. Floating garnishes: ${garnishes} around the glass. Behind it, a tilted dark grey JuiceBox bag-in-box container with white branding.
+Style: professional advertising photography, 4K quality, appetizing, premium feel.`;
 
-At the bottom: Show the product name "${name}" in bold elegant typography.
+    console.log('Generating image with reference images...');
 
-Style: professional advertising photography, 4K quality, appetizing, premium feel, clean composition.`;
-
-    console.log('Generating image with prompt:', prompt);
-
-    // Call OpenRouter API with Gemini 3 Pro Image
+    // Call OpenRouter API with Gemini 3 Pro Image (multimodal with reference images)
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -118,7 +123,20 @@ Style: professional advertising photography, 4K quality, appetizing, premium fee
         messages: [
           {
             role: 'user',
-            content: prompt
+            content: [
+              {
+                type: 'image_url',
+                image_url: { url: `data:image/jpeg;base64,${JUICEBOX_PRODUCT}` }
+              },
+              {
+                type: 'image_url',
+                image_url: { url: `data:image/jpeg;base64,${JUICEBOX_LOGO}` }
+              },
+              {
+                type: 'text',
+                text: prompt
+              }
+            ]
           }
         ],
       }),
