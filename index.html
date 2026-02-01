@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JuiceBox Limited Edition Builder</title>
+  <meta name="description" content="Kreiere deine eigene JuiceBox Limited Edition und stimme für deine Favoriten!">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="container">
+        <h1>🧃 JuiceBox Challenge</h1>
+        <p class="tagline">Kreiere deine eigene Limited Edition!</p>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="tabs">
+      <button class="tab active" data-tab="create">🎨 Kreieren</button>
+      <button class="tab" data-tab="vote">🏆 Abstimmen</button>
+    </nav>
+
+    <!-- Create Section -->
+    <section id="create-section" class="section active">
+      <div class="container">
+        <!-- Step 1: Primary Flavor -->
+        <div class="builder-step">
+          <h2>1. Hauptgeschmack wählen</h2>
+          <div class="flavor-grid" id="primary-flavors"></div>
+        </div>
+
+        <!-- Step 2: Secondary Flavor -->
+        <div class="builder-step">
+          <h2>2. Kombinieren mit (optional)</h2>
+          <div class="flavor-grid" id="secondary-flavors"></div>
+        </div>
+
+        <!-- Step 3: Accent -->
+        <div class="builder-step">
+          <h2>3. Special Akzent (optional)</h2>
+          <div class="flavor-grid" id="accents"></div>
+        </div>
+
+        <!-- Step 4: Base & Variant -->
+        <div class="builder-step">
+          <h2>4. Basis & Variante</h2>
+          <div class="options-row">
+            <div class="option-group">
+              <label>Basis:</label>
+              <div class="toggle-group" id="base-type"></div>
+            </div>
+            <div class="option-group">
+              <label>Variante:</label>
+              <div class="toggle-group" id="variant"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Preview -->
+        <div class="preview-card" id="preview">
+          <h3>Deine Kreation</h3>
+          <div class="preview-content">
+            <span class="preview-emoji" id="preview-emoji">🧃</span>
+            <span class="preview-name" id="preview-name">Wähle Zutaten...</span>
+          </div>
+        </div>
+
+        <!-- Step 5: Name & Submit -->
+        <div class="builder-step">
+          <h2>5. Namen geben & einreichen</h2>
+          <div class="submit-form">
+            <input type="text" id="creation-name" placeholder="z.B. Summer Explosion" maxlength="30">
+            <button id="submit-btn" class="btn btn-primary" disabled>
+              🚀 Einreichen
+            </button>
+          </div>
+          <p class="hint">3-30 Zeichen, keine Sonderzeichen</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Vote Section -->
+    <section id="vote-section" class="section">
+      <div class="container">
+        <h2>🏆 Top Limited Editions</h2>
+        <div id="leaderboard" class="leaderboard">
+          <div class="loading">Lädt...</div>
+        </div>
+        <button id="load-more" class="btn btn-secondary" style="display: none;">
+          Mehr laden
+        </button>
+      </div>
+    </section>
+
+    <!-- Toast Notifications -->
+    <div id="toast" class="toast"></div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
