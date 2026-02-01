@@ -30,6 +30,16 @@ export async function createCreation(creation) {
   return data;
 }
 
+export async function updateCreationImage(creationId, imageUrl) {
+  const { data, error } = await supabase
+    .from('creations')
+    .update({ image_url: imageUrl })
+    .eq('id', creationId);
+  
+  if (error) throw error;
+  return data;
+}
+
 export async function voteForCreation(creationId, voterIp) {
   const { data, error } = await supabase
     .from('votes')
@@ -63,5 +73,34 @@ export async function getVisitorIp() {
     return data.ip;
   } catch {
     return 'unknown';
+  }
+}
+
+// Generate image for creation
+export async function generateCreationImage(creation) {
+  try {
+    const response = await fetch('/api/generate-image', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: creation.name,
+        flavors: creation.primary_flavor.split(','),
+        accent: creation.accent,
+        baseType: creation.base_type,
+        variant: creation.variant,
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Image generation failed');
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Image generation error:', error);
+    return null;
   }
 }

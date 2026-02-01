@@ -423,6 +423,27 @@ body {
 
 .creation-emoji {
   font-size: 2rem;
+  min-width: 50px;
+  text-align: center;
+}
+
+.creation-image {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.creation-card.has-image {
+  min-height: 100px;
+}
+
+@media (min-width: 600px) {
+  .creation-image {
+    width: 100px;
+    height: 100px;
+  }
 }
 
 .creation-info {

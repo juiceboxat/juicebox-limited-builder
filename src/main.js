@@ -1,7 +1,7 @@
 // JuiceBox Limited Edition Builder - Main App
 
 import { primaryFlavors, accents, baseTypes, variants } from './data/flavors.js';
-import { supabase, getCreations, createCreation, voteForCreation, getVisitorIp, hasVoted } from './lib/supabase.js';
+import { supabase, getCreations, createCreation, updateCreationImage, voteForCreation, getVisitorIp, hasVoted, generateCreationImage } from './lib/supabase.js';
 
 // Constants
 const MAX_PRIMARY_FLAVORS = 3;
@@ -246,7 +246,7 @@ async function submitCreation() {
     elements.submitBtn.textContent = '⏳ Wird eingereicht...';
     
     // Join primary flavors with comma
-    const creation = {
+    const creationData = {
       name,
       primary_flavor: state.primaryFlavors.join(','),
       secondary_flavor: null, // Not used anymore
@@ -256,9 +256,25 @@ async function submitCreation() {
       creator_ip: state.visitorIp,
     };
     
-    await createCreation(creation);
+    // Create the entry first
+    const creation = await createCreation(creationData);
     
     showToast('🎉 Deine Kreation wurde eingereicht!', 'success');
+    
+    // Generate image in background
+    elements.submitBtn.textContent = '🎨 Bild wird generiert...';
+    
+    try {
+      const imageResult = await generateCreationImage(creation);
+      if (imageResult && imageResult.imageUrl) {
+        await updateCreationImage(creation.id, imageResult.imageUrl);
+        showToast('🖼️ Produktbild wurde erstellt!', 'success');
+      }
+    } catch (imgError) {
+      console.error('Image generation error:', imgError);
+      // Don't fail the whole submission if image fails
+    }
+    
     resetForm();
   } catch (error) {
     console.error('Submit error:', error);
@@ -336,10 +352,15 @@ function renderLeaderboard() {
     const rank = state.offset + i + 1;
     const isTop3 = rank <= 3;
     
+    // Image display
+    const imageHtml = c.image_url 
+      ? `<img src="${c.image_url}" alt="${c.name}" class="creation-image" loading="lazy">`
+      : `<div class="creation-emoji">${emoji}</div>`;
+    
     return `
-      <div class="creation-card">
+      <div class="creation-card ${c.image_url ? 'has-image' : ''}">
         <div class="creation-rank ${isTop3 ? 'top-3' : ''}">#${rank}</div>
-        <div class="creation-emoji">${emoji}</div>
+        ${imageHtml}
         <div class="creation-info">
           <div class="creation-name">${c.name}</div>
           <div class="creation-details">${details} | ${c.base_type === 'eistee' ? 'Eistee' : 'Normal'} ${c.variant === 'light' ? 'Light' : 'Original'}</div>
