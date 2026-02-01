@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>JuiceBox Limited Edition Builder</title>
+  <title>JuiceBox Challenge - Kreiere deine Limited Edition</title>
   <meta name="description" content="Kreiere deine eigene JuiceBox Limited Edition und stimme für deine Favoriten!">
+  <link rel="icon" type="image/png" href="https://juicebox.at/cdn/shop/files/logo_6671df5b-a1df-4b13-a452-8187be72c249.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -15,8 +16,13 @@
     <!-- Header -->
     <header class="header">
       <div class="container">
-        <h1>🧃 JuiceBox Challenge</h1>
-        <p class="tagline">Kreiere deine eigene Limited Edition!</p>
+        <div class="header-content">
+          <img src="https://juicebox.at/cdn/shop/files/logo_6671df5b-a1df-4b13-a452-8187be72c249.png" alt="JuiceBox" class="logo">
+          <div>
+            <h1>🧃 JuiceBox Challenge</h1>
+            <p class="tagline">Kreiere deine eigene Limited Edition!</p>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -29,27 +35,27 @@
     <!-- Create Section -->
     <section id="create-section" class="section active">
       <div class="container">
-        <!-- Step 1: Primary Flavor -->
+        <!-- Step 1: Primary Flavors (up to 3) -->
         <div class="builder-step">
-          <h2>1. Hauptgeschmack wählen</h2>
+          <h2>
+            1. Geschmacksrichtungen wählen
+            <span class="step-hint">Wähle 1-3 Sorten</span>
+          </h2>
+          <div id="primary-counter" class="selection-counter" style="display: none; margin-bottom: 12px;">
+            <span id="counter-text">0/3 gewählt</span>
+          </div>
           <div class="flavor-grid" id="primary-flavors"></div>
         </div>
 
-        <!-- Step 2: Secondary Flavor -->
+        <!-- Step 2: Accent -->
         <div class="builder-step">
-          <h2>2. Kombinieren mit (optional)</h2>
-          <div class="flavor-grid" id="secondary-flavors"></div>
-        </div>
-
-        <!-- Step 3: Accent -->
-        <div class="builder-step">
-          <h2>3. Special Akzent (optional)</h2>
+          <h2>2. Special Akzent (optional)</h2>
           <div class="flavor-grid" id="accents"></div>
         </div>
 
-        <!-- Step 4: Base & Variant -->
+        <!-- Step 3: Base & Variant -->
         <div class="builder-step">
-          <h2>4. Basis & Variante</h2>
+          <h2>3. Basis & Variante</h2>
           <div class="options-row">
             <div class="option-group">
               <label>Basis:</label>
@@ -67,13 +73,14 @@
           <h3>Deine Kreation</h3>
           <div class="preview-content">
             <span class="preview-emoji" id="preview-emoji">🧃</span>
-            <span class="preview-name" id="preview-name">Wähle Zutaten...</span>
+            <span class="preview-name" id="preview-name">Wähle Geschmacksrichtungen...</span>
           </div>
+          <div class="preview-tags" id="preview-tags"></div>
         </div>
 
-        <!-- Step 5: Name & Submit -->
+        <!-- Step 4: Name & Submit -->
         <div class="builder-step">
-          <h2>5. Namen geben & einreichen</h2>
+          <h2>4. Namen geben & einreichen</h2>
           <div class="submit-form">
             <input type="text" id="creation-name" placeholder="z.B. Summer Explosion" maxlength="30">
             <button id="submit-btn" class="btn btn-primary" disabled>
@@ -88,11 +95,11 @@
     <!-- Vote Section -->
     <section id="vote-section" class="section">
       <div class="container">
-        <h2>🏆 Top Limited Editions</h2>
+        <h2 style="margin-bottom: 20px; font-size: 1.5rem;">🏆 Top Limited Editions</h2>
         <div id="leaderboard" class="leaderboard">
           <div class="loading">Lädt...</div>
         </div>
-        <button id="load-more" class="btn btn-secondary" style="display: none;">
+        <button id="load-more" class="btn btn-secondary" style="display: none; margin: 20px auto;">
           Mehr laden
         </button>
       </div>

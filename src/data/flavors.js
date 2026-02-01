@@ -21,22 +21,17 @@ export const primaryFlavors = [
   { id: 'holunder', name: 'Holunder', emoji: '🌸' },
   { id: 'rhabarber', name: 'Rhabarber', emoji: '🥬' },
   { id: 'pfirsich', name: 'Pfirsich', emoji: '🍑' },
-];
-
-export const secondaryFlavors = [
   { id: 'kokos', name: 'Kokos', emoji: '🥥' },
   { id: 'minze', name: 'Minze', emoji: '🌿' },
   { id: 'vanille', name: 'Vanille', emoji: '🍦' },
   { id: 'rose', name: 'Rose', emoji: '🌹' },
-  { id: 'zimt', name: 'Zimt', emoji: '🫚' },
-  { id: 'ingwer', name: 'Ingwer', emoji: '🫚' },
 ];
 
 export const accents = [
+  { id: 'none', name: 'Kein Akzent', emoji: '➖' },
   { id: 'cola', name: 'Cola Bomb', emoji: '🥤' },
   { id: 'energy', name: 'Energy', emoji: '⚡' },
-  { id: 'frost', name: 'Frost', emoji: '❄️' },
-  { id: 'none', name: 'Kein Akzent', emoji: '➖' },
+  { id: 'frost', name: 'Frost (Punch)', emoji: '❄️' },
 ];
 
 export const baseTypes = [

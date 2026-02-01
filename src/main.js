@@ -1,13 +1,15 @@
 // JuiceBox Limited Edition Builder - Main App
 
-import { primaryFlavors, secondaryFlavors, accents, baseTypes, variants } from './data/flavors.js';
+import { primaryFlavors, accents, baseTypes, variants } from './data/flavors.js';
 import { supabase, getCreations, createCreation, voteForCreation, getVisitorIp, hasVoted } from './lib/supabase.js';
+
+// Constants
+const MAX_PRIMARY_FLAVORS = 3;
 
 // State
 const state = {
-  primary: null,
-  secondary: null,
-  accent: null,
+  primaryFlavors: [], // Array of selected flavor IDs (max 3)
+  accent: 'none',
   baseType: 'normal',
   variant: 'light',
   visitorIp: null,
@@ -22,12 +24,14 @@ const elements = {
   tabs: document.querySelectorAll('.tab'),
   sections: document.querySelectorAll('.section'),
   primaryGrid: document.getElementById('primary-flavors'),
-  secondaryGrid: document.getElementById('secondary-flavors'),
   accentsGrid: document.getElementById('accents'),
   baseTypeGroup: document.getElementById('base-type'),
   variantGroup: document.getElementById('variant'),
   previewEmoji: document.getElementById('preview-emoji'),
   previewName: document.getElementById('preview-name'),
+  previewTags: document.getElementById('preview-tags'),
+  primaryCounter: document.getElementById('primary-counter'),
+  counterText: document.getElementById('counter-text'),
   nameInput: document.getElementById('creation-name'),
   submitBtn: document.getElementById('submit-btn'),
   leaderboard: document.getElementById('leaderboard'),
@@ -42,6 +46,7 @@ async function init() {
   renderToggles();
   setupEventListeners();
   updatePreview();
+  updatePrimaryCounter();
 }
 
 // Render Flavor Grids
@@ -53,15 +58,8 @@ function renderFlavorGrids() {
     </button>`
   ).join('');
 
-  elements.secondaryGrid.innerHTML = secondaryFlavors.map(f => 
-    `<button class="flavor-btn" data-id="${f.id}" data-type="secondary">
-      <span class="emoji">${f.emoji}</span>
-      <span class="name">${f.name}</span>
-    </button>`
-  ).join('');
-
   elements.accentsGrid.innerHTML = accents.map(a => 
-    `<button class="flavor-btn" data-id="${a.id}" data-type="accent">
+    `<button class="flavor-btn ${state.accent === a.id ? 'selected' : ''}" data-id="${a.id}" data-type="accent">
       <span class="emoji">${a.emoji}</span>
       <span class="name">${a.name}</span>
     </button>`
@@ -120,24 +118,64 @@ function switchTab(tabId) {
   }
 }
 
-// Select Flavor
+// Select Primary Flavor (multi-select up to 3)
 function selectFlavor(btn) {
   const type = btn.dataset.type;
   const id = btn.dataset.id;
   
-  // Toggle selection
-  if (state[type] === id) {
-    state[type] = null;
-    btn.classList.remove('selected');
-  } else {
-    // Remove previous selection
-    document.querySelectorAll(`.flavor-btn[data-type="${type}"]`).forEach(b => b.classList.remove('selected'));
-    state[type] = id;
+  if (type === 'primary') {
+    const index = state.primaryFlavors.indexOf(id);
+    
+    if (index > -1) {
+      // Deselect
+      state.primaryFlavors.splice(index, 1);
+      btn.classList.remove('selected');
+    } else if (state.primaryFlavors.length < MAX_PRIMARY_FLAVORS) {
+      // Select (if under limit)
+      state.primaryFlavors.push(id);
+      btn.classList.add('selected');
+    } else {
+      // Already at max
+      showToast(`Maximal ${MAX_PRIMARY_FLAVORS} Geschmacksrichtungen!`, 'error');
+      return;
+    }
+    
+    updatePrimaryCounter();
+    updateDisabledState();
+  } else if (type === 'accent') {
+    // Single select for accent
+    state.accent = id;
+    document.querySelectorAll('.flavor-btn[data-type="accent"]').forEach(b => b.classList.remove('selected'));
     btn.classList.add('selected');
   }
   
   updatePreview();
   validateForm();
+}
+
+// Update counter display
+function updatePrimaryCounter() {
+  const count = state.primaryFlavors.length;
+  if (count > 0) {
+    elements.primaryCounter.style.display = 'inline-flex';
+    elements.counterText.textContent = `${count}/${MAX_PRIMARY_FLAVORS} gewählt`;
+  } else {
+    elements.primaryCounter.style.display = 'none';
+  }
+}
+
+// Update disabled state when max reached
+function updateDisabledState() {
+  const atMax = state.primaryFlavors.length >= MAX_PRIMARY_FLAVORS;
+  
+  document.querySelectorAll('.flavor-btn[data-type="primary"]').forEach(btn => {
+    const isSelected = state.primaryFlavors.includes(btn.dataset.id);
+    if (atMax && !isSelected) {
+      btn.classList.add('disabled');
+    } else {
+      btn.classList.remove('disabled');
+    }
+  });
 }
 
 // Select Toggle
@@ -156,33 +194,47 @@ function selectToggle(btn) {
 
 // Update Preview
 function updatePreview() {
-  const primary = primaryFlavors.find(f => f.id === state.primary);
-  const secondary = secondaryFlavors.find(f => f.id === state.secondary);
-  const accent = accents.find(a => a.id === state.accent);
+  // Build emoji from selected flavors
+  let emoji = '';
+  const selectedFlavors = state.primaryFlavors.map(id => primaryFlavors.find(f => f.id === id)).filter(Boolean);
   
-  // Build emoji
-  let emoji = primary ? primary.emoji : '🧃';
-  if (secondary) emoji += secondary.emoji;
-  if (accent && accent.id !== 'none') emoji += accent.emoji;
+  if (selectedFlavors.length > 0) {
+    emoji = selectedFlavors.map(f => f.emoji).join('');
+  } else {
+    emoji = '🧃';
+  }
+  
+  const accent = accents.find(a => a.id === state.accent);
+  if (accent && accent.id !== 'none') {
+    emoji += accent.emoji;
+  }
   
   // Build name
-  let nameParts = [];
-  if (primary) nameParts.push(primary.name);
-  if (secondary) nameParts.push(secondary.name);
-  if (accent && accent.id !== 'none') nameParts.push(accent.name);
+  const flavorNames = selectedFlavors.map(f => f.name);
+  let name = flavorNames.length > 0 ? flavorNames.join(' + ') : 'Wähle Geschmacksrichtungen...';
   
-  let name = nameParts.length > 0 ? nameParts.join(' + ') : 'Wähle Zutaten...';
-  name += ` | ${state.baseType === 'eistee' ? 'Eistee' : 'Normal'} ${state.variant === 'light' ? 'Light' : 'Original'}`;
+  if (accent && accent.id !== 'none') {
+    name += ` + ${accent.name}`;
+  }
   
   elements.previewEmoji.textContent = emoji;
   elements.previewName.textContent = name;
+  
+  // Update tags
+  const tags = [];
+  tags.push(state.baseType === 'eistee' ? 'Eistee' : 'Normal');
+  tags.push(state.variant === 'light' ? 'Light' : 'Original');
+  
+  elements.previewTags.innerHTML = tags.map(t => `<span class="preview-tag">${t}</span>`).join('');
 }
 
 // Validate Form
 function validateForm() {
   const name = elements.nameInput.value.trim();
-  const isValid = state.primary && name.length >= 3 && name.length <= 30 && /^[a-zA-Z0-9äöüÄÖÜß\s]+$/.test(name);
-  elements.submitBtn.disabled = !isValid;
+  const hasValidName = name.length >= 3 && name.length <= 30 && /^[a-zA-Z0-9äöüÄÖÜß\s\-]+$/.test(name);
+  const hasFlavors = state.primaryFlavors.length > 0;
+  
+  elements.submitBtn.disabled = !(hasValidName && hasFlavors);
 }
 
 // Submit Creation
@@ -193,11 +245,12 @@ async function submitCreation() {
     elements.submitBtn.disabled = true;
     elements.submitBtn.textContent = '⏳ Wird eingereicht...';
     
+    // Join primary flavors with comma
     const creation = {
       name,
-      primary_flavor: state.primary,
-      secondary_flavor: state.secondary,
-      accent: state.accent,
+      primary_flavor: state.primaryFlavors.join(','),
+      secondary_flavor: null, // Not used anymore
+      accent: state.accent !== 'none' ? state.accent : null,
       base_type: state.baseType,
       variant: state.variant,
       creator_ip: state.visitorIp,
@@ -218,13 +271,15 @@ async function submitCreation() {
 
 // Reset Form
 function resetForm() {
-  state.primary = null;
-  state.secondary = null;
-  state.accent = null;
+  state.primaryFlavors = [];
+  state.accent = 'none';
   elements.nameInput.value = '';
   
-  document.querySelectorAll('.flavor-btn').forEach(btn => btn.classList.remove('selected'));
+  document.querySelectorAll('.flavor-btn').forEach(btn => btn.classList.remove('selected', 'disabled'));
+  document.querySelectorAll('.flavor-btn[data-type="accent"][data-id="none"]').forEach(btn => btn.classList.add('selected'));
+  
   updatePreview();
+  updatePrimaryCounter();
   validateForm();
 }
 
@@ -262,25 +317,28 @@ function renderLeaderboard() {
   }
   
   elements.leaderboard.innerHTML = state.creations.map((c, i) => {
-    const primary = primaryFlavors.find(f => f.id === c.primary_flavor);
-    const secondary = secondaryFlavors.find(f => f.id === c.secondary_flavor);
+    // Parse primary flavors (comma-separated)
+    const flavorIds = c.primary_flavor ? c.primary_flavor.split(',') : [];
+    const selectedFlavors = flavorIds.map(id => primaryFlavors.find(f => f.id === id)).filter(Boolean);
     const accent = accents.find(a => a.id === c.accent);
     
-    let emoji = primary ? primary.emoji : '🧃';
-    if (secondary) emoji += secondary.emoji;
+    let emoji = selectedFlavors.length > 0 
+      ? selectedFlavors.map(f => f.emoji).join('')
+      : '🧃';
     if (accent && accent.id !== 'none') emoji += accent.emoji;
     
     const details = [
-      primary?.name,
-      secondary?.name,
+      ...selectedFlavors.map(f => f.name),
       accent && accent.id !== 'none' ? accent.name : null,
     ].filter(Boolean).join(' + ');
     
     const voted = state.votedFor.has(c.id);
+    const rank = state.offset + i + 1;
+    const isTop3 = rank <= 3;
     
     return `
       <div class="creation-card">
-        <div class="creation-rank">#${state.offset + i + 1}</div>
+        <div class="creation-rank ${isTop3 ? 'top-3' : ''}">#${rank}</div>
         <div class="creation-emoji">${emoji}</div>
         <div class="creation-info">
           <div class="creation-name">${c.name}</div>
