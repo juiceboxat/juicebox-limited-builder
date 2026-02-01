@@ -1,5 +1,5 @@
 // Vercel Serverless Function: Generate JuiceBox Limited Edition Image
-// Uses OpenRouter API with Gemini model
+// Uses OpenRouter API with Gemini 3 Pro Image (Nano Banana Pro)
 
 export default async function handler(req, res) {
   // CORS headers
@@ -84,24 +84,18 @@ export default async function handler(req, res) {
     
     const garnishes = flavors.map(f => garnishMap[f] || f).join(', ');
 
-    const prompt = `Professional product promotional poster for JuiceBox "${name}" Limited Edition.
+    const prompt = `Generate an image: Professional product promotional poster for JuiceBox "${name}" Limited Edition.
 
-Scene: elegant garden terrace in front of a baroque-style palace, bright daylight, sun-drenched outdoor luxury atmosphere, vibrant natural light, high-key aesthetics, soft focus background, refreshing premium exclusive summery mood.
+Scene: elegant garden terrace, bright daylight, sun-drenched outdoor luxury atmosphere, vibrant natural light, refreshing premium exclusive summery mood.
 
-Central subject: A tall faceted glass with ${beverageColor} "${name}" beverage with ice cubes, dynamic splash effect with liquid frozen in mid-air. Floating garnishes: ${garnishes} circling the glass. Behind it, a tilted dark grey JuiceBox bag-in-box container with white branding and colored tap.
+Central subject: A tall faceted glass with ${beverageColor} "${name}" beverage with ice cubes, dynamic splash effect. Floating garnishes: ${garnishes} around the glass. Behind it, a tilted dark grey JuiceBox bag-in-box container with white branding.
 
-Background: ornate palace facade with classical details, lush green trees, blooming flowers, manicured garden paths, dreamy bokeh blur.
+Style: professional advertising photography, 4K quality, appetizing, premium feel, clean composition.`;
 
-Text overlays:
-- Top center: "JuiceBox Limited VIP" white logo
-- Upper third: "${name}" in bold large white sans-serif
-- Left side: circular magenta badge "Nur solange der Vorrat reicht!"
-- Bottom: green button bar with product info "${typeText}"
+    console.log('Generating image with prompt:', prompt);
 
-Style: professional advertising photography, 4K quality, appetizing, premium feel.`;
-
-    // Call OpenRouter API
-    const response = await fetch('https://openrouter.ai/api/v1/images/generations', {
+    // Call OpenRouter API with Gemini 3 Pro Image
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
@@ -110,57 +104,73 @@ Style: professional advertising photography, 4K quality, appetizing, premium fee
         'X-Title': 'JuiceBox Limited Builder',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.0-flash-exp:free', // or appropriate model
-        prompt: prompt,
-        n: 1,
-        size: '1024x1024',
+        model: 'google/gemini-3-pro-image-preview',
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenRouter error:', errorText);
-      
-      // Try alternative: use chat completion with image generation
-      const chatResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://juicebox-limited-builder.vercel.app',
-          'X-Title': 'JuiceBox Limited Builder',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.0-flash-exp:free',
-          messages: [
-            {
-              role: 'user',
-              content: `Generate an image: ${prompt}`
-            }
-          ],
-        }),
+      console.error('OpenRouter error:', response.status, errorText);
+      return res.status(500).json({ 
+        error: 'Image generation failed',
+        details: errorText 
       });
-      
-      if (!chatResponse.ok) {
-        throw new Error('Image generation failed');
-      }
-      
-      const chatData = await chatResponse.json();
-      // Check if there's an image in the response
-      if (chatData.choices?.[0]?.message?.content) {
-        return res.status(200).json({ 
-          success: true,
-          message: 'Image generation requested',
-          prompt: prompt
-        });
-      }
     }
 
     const data = await response.json();
+    console.log('OpenRouter response received');
+    
+    // Extract image URL from response
+    let imageUrl = null;
+    const msg = data.choices?.[0]?.message;
+    
+    // Primary: Check for images array (Gemini 3 Pro Image format via OpenRouter)
+    if (msg?.images && Array.isArray(msg.images) && msg.images.length > 0) {
+      const img = msg.images[0];
+      if (img.image_url?.url) {
+        imageUrl = img.image_url.url;
+      } else if (img.url) {
+        imageUrl = img.url;
+      }
+    }
+    
+    // Fallback: Check content array
+    if (!imageUrl && msg?.content) {
+      const content = msg.content;
+      if (Array.isArray(content)) {
+        for (const part of content) {
+          if (part.inline_data?.data && part.inline_data?.mime_type) {
+            imageUrl = `data:${part.inline_data.mime_type};base64,${part.inline_data.data}`;
+            break;
+          }
+          if (part.type === 'image_url' && part.image_url?.url) {
+            imageUrl = part.image_url.url;
+            break;
+          }
+          if (part.type === 'image' && part.url) {
+            imageUrl = part.url;
+            break;
+          }
+        }
+      } else if (typeof content === 'string' && content.includes('data:image')) {
+        const match = content.match(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/);
+        if (match) {
+          imageUrl = match[0];
+        }
+      }
+    }
+    
+    console.log('Extracted image URL:', imageUrl ? `Found (length: ${imageUrl.length})` : 'Not found');
     
     return res.status(200).json({
       success: true,
-      imageUrl: data.data?.[0]?.url || null,
+      imageUrl: imageUrl,
       prompt: prompt,
     });
 
