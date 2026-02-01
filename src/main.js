@@ -283,16 +283,14 @@ async function submitCreation() {
     // Reset the form now
     resetForm();
     
-    // Generate image
+    // Generate image (API also updates database directly)
     console.log('Starting image generation...');
     try {
       const imageResult = await generateCreationImage(creation);
       console.log('Image result:', imageResult);
       if (imageResult && imageResult.imageUrl) {
-        console.log('Saving image URL to database...');
-        await updateCreationImage(creation.id, imageResult.imageUrl);
         creation.image_url = imageResult.imageUrl;
-        console.log('Image URL saved successfully');
+        console.log('Image generated and saved by API');
       } else {
         console.warn('No image URL in result');
       }
@@ -415,27 +413,33 @@ function renderLeaderboard() {
     const isTop3 = rank <= 3;
     const isJustCreated = c.id === state.justCreatedId;
     
-    // Image display
-    const imageHtml = c.image_url 
-      ? `<img src="${c.image_url}" alt="${c.name}" class="creation-image" loading="lazy">`
-      : `<div class="creation-emoji">${emoji}</div>`;
-    
     // Badge for user's own creation
     const yourBadge = isJustCreated ? '<span class="your-creation-badge">Deine Kreation</span>' : '';
     
+    // Type badge
+    const typeBadge = `${c.base_type === 'eistee' ? '🧊 Eistee' : '🍹 Classic'} ${c.variant === 'light' ? 'Light' : ''}`.trim();
+    
     return `
       <div class="creation-card ${c.image_url ? 'has-image' : ''} ${isJustCreated ? 'highlighted' : ''}">
-        <div class="creation-rank ${isTop3 ? 'top-3' : ''}">${isJustCreated ? '✨' : '#' + rank}</div>
-        ${imageHtml}
-        <div class="creation-info">
-          <div class="creation-name">${c.name}${yourBadge}</div>
-          <div class="creation-details">${details} | ${c.base_type === 'eistee' ? 'Eistee' : 'Normal'} ${c.variant === 'light' ? 'Light' : 'Original'}</div>
+        <div class="creation-image-wrapper">
+          <div class="creation-rank ${isTop3 ? 'top-3' : ''}">${isJustCreated ? '✨ Neu' : '#' + rank}</div>
+          ${c.image_url 
+            ? `<img src="${c.image_url}" alt="${c.name}" class="creation-image" loading="lazy">`
+            : `<div class="creation-emoji">${emoji}</div>`
+          }
         </div>
-        <div class="creation-vote">
-          <span class="vote-count">${c.votes_count} 👍</span>
-          <button class="vote-btn ${voted ? 'voted' : ''}" data-id="${c.id}" ${voted ? 'disabled' : ''}>
-            ${voted ? '✓ Gestimmt' : '👍 Vote'}
-          </button>
+        <div class="creation-body">
+          <div class="creation-info">
+            <div class="creation-name">${c.name}${yourBadge}</div>
+            <div class="creation-details">${details}</div>
+            <div class="creation-details">${typeBadge}</div>
+          </div>
+          <div class="creation-vote">
+            <span class="vote-count">${c.votes_count} 👍</span>
+            <button class="vote-btn ${voted ? 'voted' : ''}" data-id="${c.id}" ${voted ? 'disabled' : ''}>
+              ${voted ? '✓' : '👍 Vote'}
+            </button>
+          </div>
         </div>
       </div>
     `;

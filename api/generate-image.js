@@ -2,7 +2,7 @@
 // Uses OpenRouter API with Gemini 3 Pro Image (Nano Banana Pro)
 
 import { createClient } from '@supabase/supabase-js';
-import { JUICEBOX_PRODUCT, JUICEBOX_LOGO } from './reference-images.js';
+// import { JUICEBOX_PRODUCT, JUICEBOX_LOGO } from './reference-images.js';
 
 const supabaseUrl = 'https://rpqbjfbkrkgnrebcysta.supabase.co';
 const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
@@ -23,11 +23,16 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { name, flavors, accent, baseType, variant } = req.body;
+    console.log('Request body:', JSON.stringify(req.body));
+    
+    const { creationId, name, flavors, accent, baseType, variant } = req.body || {};
     
     if (!name || !flavors || flavors.length === 0) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      console.error('Missing fields - name:', name, 'flavors:', flavors);
+      return res.status(400).json({ error: 'Missing required fields', received: { name, flavors } });
     }
+    
+    console.log('Processing request for:', name, 'flavors:', flavors, 'creationId:', creationId);
 
     // Build the prompt
     const flavorList = flavors.join(', ');
@@ -91,17 +96,13 @@ export default async function handler(req, res) {
     
     const garnishes = flavors.map(f => garnishMap[f] || f).join(', ');
 
-    const prompt = `Generate a professional product promotional poster for JuiceBox "${name}" Limited Edition.
-
-I'm providing two reference images:
-1. The JuiceBox bag-in-box product packaging (dark grey with white branding, red tap)
-2. The "JuiceBox Limited" logo that should appear at the TOP of the generated image
+    const prompt = `Generate an image: Professional product promotional poster for JuiceBox "${name}" Limited Edition.
 
 Create an image with:
-- The "JuiceBox Limited" logo at the TOP (use the provided logo as reference)
+- "JuiceBox Limited" text/logo at the TOP in elegant white typography
 - A tall faceted glass with ${beverageColor} "${name}" beverage with ice cubes, dynamic splash effect
-- Floating garnishes: ${garnishes} around the glass
-- The JuiceBox bag-in-box container (use the provided product image as reference) tilted behind the glass
+- Floating garnishes: ${garnishes} around the glass  
+- A dark grey bag-in-box container with white "JuiceBox" branding tilted behind the glass
 - Elegant garden terrace setting, bright daylight, premium summery mood
 - Product name "${name}" at the bottom in bold elegant typography
 
@@ -109,7 +110,7 @@ Style: professional advertising photography, 4K quality, appetizing, premium fee
 
     console.log('Generating image with reference images...');
 
-    // Call OpenRouter API with Gemini 3 Pro Image (multimodal with reference images)
+    // Call OpenRouter API with Gemini 3 Pro Image (text only for now)
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -123,30 +124,20 @@ Style: professional advertising photography, 4K quality, appetizing, premium fee
         messages: [
           {
             role: 'user',
-            content: [
-              {
-                type: 'image_url',
-                image_url: { url: `data:image/jpeg;base64,${JUICEBOX_PRODUCT}` }
-              },
-              {
-                type: 'image_url',
-                image_url: { url: `data:image/jpeg;base64,${JUICEBOX_LOGO}` }
-              },
-              {
-                type: 'text',
-                text: prompt
-              }
-            ]
+            content: prompt
           }
         ],
       }),
     });
 
+    console.log('OpenRouter response status:', response.status);
+    
     if (!response.ok) {
       const errorText = await response.text();
       console.error('OpenRouter error:', response.status, errorText);
       return res.status(500).json({ 
         error: 'Image generation failed',
+        status: response.status,
         details: errorText 
       });
     }
@@ -239,6 +230,21 @@ Style: professional advertising photography, 4K quality, appetizing, premium fee
       publicUrl = `data:${mimeType};base64,${base64Data}`;
     }
     
+    // Update creation in database with image URL (server-side with service key)
+    if (creationId && publicUrl && !publicUrl.startsWith('data:')) {
+      console.log('Updating creation', creationId, 'with image URL');
+      const { error: updateError } = await supabase
+        .from('creations')
+        .update({ image_url: publicUrl })
+        .eq('id', creationId);
+      
+      if (updateError) {
+        console.error('Failed to update creation:', updateError);
+      } else {
+        console.log('Creation updated successfully');
+      }
+    }
+    
     return res.status(200).json({
       success: true,
       imageUrl: publicUrl,
@@ -246,10 +252,11 @@ Style: professional advertising photography, 4K quality, appetizing, premium fee
     });
 
   } catch (error) {
-    console.error('Generate image error:', error);
+    console.error('Generate image error:', error.message, error.stack);
     return res.status(500).json({ 
       error: 'Failed to generate image',
-      details: error.message 
+      details: error.message,
+      stack: error.stack
     });
   }
 }

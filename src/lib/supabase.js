@@ -31,12 +31,20 @@ export async function createCreation(creation) {
 }
 
 export async function updateCreationImage(creationId, imageUrl) {
-  const { data, error } = await supabase
+  console.log('Updating creation', creationId, 'with image URL length:', imageUrl?.length);
+  
+  const { data, error, count } = await supabase
     .from('creations')
     .update({ image_url: imageUrl })
-    .eq('id', creationId);
+    .eq('id', creationId)
+    .select();
   
-  if (error) throw error;
+  console.log('Update result - data:', data, 'error:', error, 'count:', count);
+  
+  if (error) {
+    console.error('Update error:', error);
+    throw error;
+  }
   return data;
 }
 
@@ -91,6 +99,7 @@ export async function generateCreationImage(creation) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        creationId: creation.id, // Pass ID so API can update DB directly
         name: creation.name,
         flavors: creation.primary_flavor.split(','),
         accent: creation.accent,
@@ -105,9 +114,16 @@ export async function generateCreationImage(creation) {
     console.log('Image generation response status:', response.status);
     
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Image generation failed:', errorText);
-      throw new Error('Image generation failed');
+      let errorDetail = '';
+      try {
+        const errorJson = await response.json();
+        errorDetail = JSON.stringify(errorJson);
+        console.error('Image generation failed:', response.status, errorJson);
+      } catch (e) {
+        errorDetail = await response.text();
+        console.error('Image generation failed:', response.status, errorDetail);
+      }
+      throw new Error(`Image generation failed: ${response.status} - ${errorDetail}`);
     }
     
     const data = await response.json();
