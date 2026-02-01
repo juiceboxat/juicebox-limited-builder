@@ -1,6 +1,6 @@
 // JuiceBox Flavor Data - extracted from Wall of Fame
 
-export const primaryFlavors = [
+export const fruits = [
   { id: 'apfel', name: 'Apfel', emoji: '🍎' },
   { id: 'birne', name: 'Birne', emoji: '🍐' },
   { id: 'orange', name: 'Orange', emoji: '🍊' },
@@ -21,25 +21,26 @@ export const primaryFlavors = [
   { id: 'holunder', name: 'Holunder', emoji: '🌸' },
   { id: 'rhabarber', name: 'Rhabarber', emoji: '🥬' },
   { id: 'pfirsich', name: 'Pfirsich', emoji: '🍑' },
+];
+
+export const extras = [
   { id: 'kokos', name: 'Kokos', emoji: '🥥' },
   { id: 'minze', name: 'Minze', emoji: '🌿' },
   { id: 'vanille', name: 'Vanille', emoji: '🍦' },
   { id: 'rose', name: 'Rose', emoji: '🌹' },
 ];
 
+// Combined for backwards compatibility
+export const primaryFlavors = [...fruits, ...extras];
+
 export const accents = [
-  { id: 'none', name: 'Kein Akzent', emoji: '➖' },
+  { id: 'none', name: 'Ohne', emoji: '🚫' },
   { id: 'cola', name: 'Cola Bomb', emoji: '🥤' },
   { id: 'energy', name: 'Energy', emoji: '⚡' },
-  { id: 'frost', name: 'Frost (Punch)', emoji: '❄️' },
-];
-
-export const baseTypes = [
-  { id: 'normal', name: 'Normal', description: 'Klassischer Sirup' },
-  { id: 'eistee', name: 'Eistee', description: 'Mit Tee-Note' },
+  { id: 'eistee', name: 'Eistee', emoji: '🧊' },
 ];
 
 export const variants = [
-  { id: 'original', name: 'Original', description: 'Mit Zucker' },
-  { id: 'light', name: 'Light', description: 'Zuckerfrei' },
+  { id: 'original', name: '🍬 Original', description: 'Voll süß, voll lecker!' },
+  { id: 'light', name: '💪 Light', description: 'Zero Sugar, voller Geschmack!' },
 ];

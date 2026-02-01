@@ -2,7 +2,7 @@
 // Uses OpenRouter API with Gemini 3 Pro Image (Nano Banana Pro)
 
 import { createClient } from '@supabase/supabase-js';
-// import { JUICEBOX_PRODUCT, JUICEBOX_LOGO } from './reference-images.js';
+import sharp from 'sharp';
 
 const supabaseUrl = 'https://rpqbjfbkrkgnrebcysta.supabase.co';
 const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
@@ -23,6 +23,12 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Check API key
+    if (!process.env.OPENROUTER_API_KEY) {
+      console.error('OPENROUTER_API_KEY not set!');
+      return res.status(500).json({ error: 'Server misconfiguration: API key missing' });
+    }
+    
     console.log('Request body:', JSON.stringify(req.body));
     
     const { creationId, name, flavors, accent, baseType, variant } = req.body || {};
@@ -34,81 +40,83 @@ export default async function handler(req, res) {
     
     console.log('Processing request for:', name, 'flavors:', flavors, 'creationId:', creationId);
 
-    // Build the prompt
-    const flavorList = flavors.join(', ');
-    const accentText = accent && accent !== 'none' ? ` with ${accent} accent` : '';
-    const typeText = `${baseType === 'eistee' ? 'Iced Tea' : 'Classic'} ${variant === 'light' ? 'Light' : 'Original'}`;
-    
-    // Determine beverage color based on flavors
-    const colorMap = {
-      'erdbeere': 'vibrant red',
-      'himbeere': 'deep raspberry pink',
-      'kirsche': 'rich cherry red',
-      'orange': 'bright orange',
-      'mango': 'golden mango yellow',
-      'ananas': 'tropical yellow',
-      'apfel': 'light green-gold',
-      'zitrone': 'pale yellow',
-      'blaubeere': 'deep purple-blue',
-      'traube': 'deep purple',
-      'wassermelone': 'watermelon pink',
-      'pfirsich': 'peachy orange',
-      'banane': 'creamy yellow',
-      'melone': 'light green',
-      'maracuja': 'passion fruit orange',
-      'holunder': 'light purple',
-      'birne': 'pale golden',
-      'grapefruit': 'pink-coral',
-      'johannisbeere': 'deep red',
-      'rhabarber': 'pink-red',
-      'kokos': 'creamy white',
-      'minze': 'fresh mint green',
-      'vanille': 'creamy vanilla',
-      'rose': 'soft pink',
+    // Maps for colors, garnishes, and German names
+    const flavorData = {
+      'apfel': { color: 'light green-gold', garnish: 'apple slices', name: 'Apfel' },
+      'birne': { color: 'pale golden', garnish: 'pear slices', name: 'Birne' },
+      'orange': { color: 'bright orange', garnish: 'orange slices', name: 'Orange' },
+      'zitrone': { color: 'pale yellow', garnish: 'lemon wedges', name: 'Zitrone' },
+      'grapefruit': { color: 'pink-coral', garnish: 'grapefruit segments', name: 'Grapefruit' },
+      'erdbeere': { color: 'vibrant red', garnish: 'fresh strawberry slices', name: 'Erdbeere' },
+      'himbeere': { color: 'deep raspberry pink', garnish: 'whole raspberries', name: 'Himbeere' },
+      'blaubeere': { color: 'deep purple-blue', garnish: 'fresh blueberries', name: 'Blaubeere' },
+      'kirsche': { color: 'rich cherry red', garnish: 'fresh cherries', name: 'Kirsche' },
+      'banane': { color: 'creamy yellow', garnish: 'banana slices', name: 'Banane' },
+      'mango': { color: 'golden mango yellow', garnish: 'mango cubes', name: 'Mango' },
+      'maracuja': { color: 'passion fruit orange', garnish: 'passion fruit halves', name: 'Maracuja' },
+      'ananas': { color: 'tropical yellow', garnish: 'pineapple chunks', name: 'Ananas' },
+      'wassermelone': { color: 'watermelon pink', garnish: 'watermelon pieces', name: 'Wassermelone' },
+      'melone': { color: 'light green', garnish: 'melon balls', name: 'Melone' },
+      'traube': { color: 'deep purple', garnish: 'grapes', name: 'Traube' },
+      'johannisbeere': { color: 'deep red', garnish: 'red currants', name: 'Johannisbeere' },
+      'holunder': { color: 'light purple', garnish: 'elderflower blossoms', name: 'Holunder' },
+      'rhabarber': { color: 'pink-red', garnish: 'rhubarb stalks', name: 'Rhabarber' },
+      'pfirsich': { color: 'peachy orange', garnish: 'peach slices', name: 'Pfirsich' },
+      'kokos': { color: 'creamy white', garnish: 'coconut flakes', name: 'Kokos' },
+      'minze': { color: 'fresh mint green', garnish: 'fresh mint leaves', name: 'Minze' },
+      'vanille': { color: 'creamy vanilla', garnish: 'vanilla pods', name: 'Vanille' },
+      'rose': { color: 'soft pink', garnish: 'rose petals', name: 'Rose' },
     };
     
+    const accentData = {
+      'cola': { name: 'Cola Bomb', emoji: '🥤' },
+      'energy': { name: 'Energy', emoji: '⚡' },
+      'eistee': { name: 'Eistee', emoji: '🧊' },
+    };
+    
+    // Build display strings
     const mainFlavor = flavors[0];
-    const beverageColor = colorMap[mainFlavor] || 'vibrant colored';
+    let beverageColor = flavorData[mainFlavor]?.color || 'vibrant colored';
+    const garnishes = flavors.map(f => flavorData[f]?.garnish || f).join(', ');
+    const flavorNames = flavors.map(f => flavorData[f]?.name || f);
     
-    // Build garnish list from flavors
-    const garnishMap = {
-      'erdbeere': 'fresh strawberry slices',
-      'himbeere': 'whole raspberries',
-      'kirsche': 'fresh cherries',
-      'orange': 'orange slices',
-      'mango': 'mango cubes',
-      'ananas': 'pineapple chunks',
-      'apfel': 'apple slices',
-      'zitrone': 'lemon wedges',
-      'blaubeere': 'fresh blueberries',
-      'traube': 'grapes',
-      'wassermelone': 'watermelon pieces',
-      'pfirsich': 'peach slices',
-      'banane': 'banana slices',
-      'melone': 'melon balls',
-      'maracuja': 'passion fruit halves',
-      'holunder': 'elderflower blossoms',
-      'birne': 'pear slices',
-      'grapefruit': 'grapefruit segments',
-      'kokos': 'coconut flakes',
-      'minze': 'fresh mint leaves',
-    };
+    // Override color for special cases
+    if (accent === 'cola') {
+      beverageColor = 'dark cola brown with caramel tint';
+    } else if (accent === 'energy') {
+      beverageColor = 'neon yellow-green energy drink';
+    } else if (accent === 'eistee') {
+      beverageColor = `amber-tinted ${beverageColor} iced tea`;
+    } else if (baseType === 'eistee') {
+      // Eistee base: mix fruit color with amber tea
+      beverageColor = `amber-tinted ${beverageColor} iced tea`;
+    }
     
-    const garnishes = flavors.map(f => garnishMap[f] || f).join(', ');
+    // Build components list for text overlay
+    const components = [...flavorNames];
+    if (accent && accent !== 'none' && accentData[accent]) {
+      components.push(accentData[accent].name);
+    }
+    const componentsText = components.join(' + ');
+    
+    // Type text
+    const typeText = baseType === 'eistee' ? 'EISTEE' : 'CLASSIC';
+    const variantText = variant === 'light' ? 'LIGHT' : 'ORIGINAL';
 
-    const prompt = `Generate an image: Professional product promotional poster for JuiceBox "${name}" Limited Edition.
+    const prompt = `Generate a SMALL 512x512 image: Product poster for JuiceBox "${name}" Limited Edition.
 
-Create an image with:
-- "JuiceBox Limited" text/logo at the TOP in elegant white typography
-- A tall faceted glass with ${beverageColor} "${name}" beverage with ice cubes, dynamic splash effect
-- Floating garnishes: ${garnishes} around the glass  
-- A dark grey bag-in-box container with white "JuiceBox" branding tilted behind the glass
-- Elegant garden terrace setting, bright daylight, premium summery mood
-- Product name "${name}" at the bottom in bold elegant typography
+Simple composition:
+- "JuiceBox Limited" text at TOP in white
+- CENTER: Glass with ${beverageColor} beverage, ice cubes, splash
+- Garnishes: ${garnishes}
+- LARGE text below glass: "${name}"
+- Smaller text: "${componentsText}"
+- Bottom badge: "${typeText} ${variantText}"
+- Blurred summery background
 
-Style: professional advertising photography, 4K quality, appetizing, premium feel.`;
+Keep it simple, clean typography, appetizing. Output size: 512x512 pixels.`;
 
-    console.log('Generating image with reference images...');
+    console.log('Generating image for:', name, '| Components:', componentsText);
 
     // Call OpenRouter API with Gemini 3 Pro Image (text only for now)
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -132,17 +140,29 @@ Style: professional advertising photography, 4K quality, appetizing, premium fee
 
     console.log('OpenRouter response status:', response.status);
     
+    // Read body as text first to avoid stream errors
+    const responseText = await response.text();
+    console.log('OpenRouter response body (first 500 chars):', responseText.slice(0, 500));
+    
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (e) {
+      console.error('Failed to parse OpenRouter response:', responseText.slice(0, 500));
+      return res.status(500).json({ 
+        error: 'Invalid response from image API',
+        details: responseText.slice(0, 500)
+      });
+    }
+    
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('OpenRouter error:', response.status, errorText);
+      console.error('OpenRouter error:', response.status, data);
       return res.status(500).json({ 
         error: 'Image generation failed',
         status: response.status,
-        details: errorText 
+        details: data.error || data 
       });
     }
-
-    const data = await response.json();
     console.log('OpenRouter response received');
     
     // Extract image data from response
@@ -189,19 +209,34 @@ Style: professional advertising photography, 4K quality, appetizing, premium fee
     
     console.log('Image data extracted, uploading to storage...');
     
-    const imageSizeKB = Math.round(base64Data.length * 0.75 / 1024);
-    console.log(`Image size: ~${imageSizeKB}KB`);
+    const originalSizeKB = Math.round(base64Data.length * 0.75 / 1024);
+    console.log(`Original image size: ~${originalSizeKB}KB`);
+    
+    // Compress and convert to WebP
+    const originalBuffer = Buffer.from(base64Data, 'base64');
+    let imageBuffer;
+    
+    try {
+      imageBuffer = await sharp(originalBuffer)
+        .resize(600, 600, { fit: 'inside', withoutEnlargement: true })
+        .webp({ quality: 80 })
+        .toBuffer();
+      
+      const compressedSizeKB = Math.round(imageBuffer.length / 1024);
+      console.log(`Compressed to WebP: ~${compressedSizeKB}KB (${Math.round((1 - compressedSizeKB/originalSizeKB) * 100)}% smaller)`);
+    } catch (sharpError) {
+      console.error('Sharp compression failed, using original:', sharpError.message);
+      imageBuffer = originalBuffer;
+    }
     
     // Upload to Supabase Storage
-    const imageBuffer = Buffer.from(base64Data, 'base64');
-    const ext = mimeType.includes('png') ? 'png' : 'jpg';
     const safeName = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
-    const filename = `creations/${safeName}-${Date.now()}.${ext}`;
+    const filename = `creations/${safeName}-${Date.now()}.webp`;
     
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('images')
       .upload(filename, imageBuffer, {
-        contentType: mimeType,
+        contentType: 'image/webp',
         upsert: true,
       });
     
@@ -219,7 +254,8 @@ Style: professional advertising photography, 4K quality, appetizing, premium fee
     
     // Fallback: return base64 if upload failed
     if (!publicUrl) {
-      if (imageSizeKB > 500) {
+      const compressedSizeKB = Math.round(imageBuffer.length / 1024);
+      if (compressedSizeKB > 500) {
         return res.status(200).json({
           success: true,
           imageUrl: null,
@@ -227,7 +263,7 @@ Style: professional advertising photography, 4K quality, appetizing, premium fee
           warning: 'Image too large and upload failed',
         });
       }
-      publicUrl = `data:${mimeType};base64,${base64Data}`;
+      publicUrl = `data:image/webp;base64,${imageBuffer.toString('base64')}`;
     }
     
     // Update creation in database with image URL (server-side with service key)

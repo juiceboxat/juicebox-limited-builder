@@ -20,6 +20,33 @@ export async function getCreations(limit = 20, offset = 0) {
 }
 
 export async function createCreation(creation) {
+  // Check if email already participated
+  if (creation.creator_email) {
+    const { data: emailExists } = await supabase
+      .from('creations')
+      .select('id, name')
+      .ilike('creator_email', creation.creator_email)
+      .single();
+    
+    if (emailExists) {
+      const error = new Error(`Du hast bereits mit dieser E-Mail teilgenommen!`);
+      error.code = 'EMAIL_EXISTS';
+      error.existingCreation = emailExists.name;
+      throw error;
+    }
+  }
+  
+  // Check if name already exists
+  const { data: existing } = await supabase
+    .from('creations')
+    .select('id')
+    .ilike('name', creation.name)
+    .single();
+  
+  if (existing) {
+    throw new Error(`Der Name "${creation.name}" ist bereits vergeben. Wähle einen anderen!`);
+  }
+  
   const { data, error } = await supabase
     .from('creations')
     .insert([creation])
@@ -49,6 +76,7 @@ export async function updateCreationImage(creationId, imageUrl) {
 }
 
 export async function voteForCreation(creationId, voterIp) {
+  // Insert vote
   const { data, error } = await supabase
     .from('votes')
     .insert([{ creation_id: creationId, voter_ip: voterIp }]);
@@ -59,7 +87,37 @@ export async function voteForCreation(creationId, voterIp) {
     }
     throw error;
   }
+  
+  // Manually increment votes_count
+  // First get current count
+  const { data: creation } = await supabase
+    .from('creations')
+    .select('votes_count')
+    .eq('id', creationId)
+    .single();
+  
+  const newCount = (creation?.votes_count || 0) + 1;
+  
+  await supabase
+    .from('creations')
+    .update({ votes_count: newCount })
+    .eq('id', creationId);
+  
   return data;
+}
+
+// Get all creation IDs this IP has voted for
+export async function getVotedCreationIds(voterIp) {
+  const { data, error } = await supabase
+    .from('votes')
+    .select('creation_id')
+    .eq('voter_ip', voterIp);
+  
+  if (error) {
+    console.error('Error fetching votes:', error);
+    return [];
+  }
+  return data.map(v => v.creation_id);
 }
 
 export async function hasVoted(creationId, voterIp) {
@@ -113,20 +171,21 @@ export async function generateCreationImage(creation) {
     
     console.log('Image generation response status:', response.status);
     
-    if (!response.ok) {
-      let errorDetail = '';
-      try {
-        const errorJson = await response.json();
-        errorDetail = JSON.stringify(errorJson);
-        console.error('Image generation failed:', response.status, errorJson);
-      } catch (e) {
-        errorDetail = await response.text();
-        console.error('Image generation failed:', response.status, errorDetail);
-      }
-      throw new Error(`Image generation failed: ${response.status} - ${errorDetail}`);
+    // Read body as text first, then parse — avoids "body already read" error
+    const responseText = await response.text();
+    let data;
+    
+    try {
+      data = JSON.parse(responseText);
+    } catch (e) {
+      console.error('Failed to parse response:', responseText.slice(0, 500));
+      throw new Error(`Image generation failed: ${response.status} - Invalid JSON response`);
     }
     
-    const data = await response.json();
+    if (!response.ok) {
+      console.error('Image generation failed:', response.status, data);
+      throw new Error(`Image generation failed: ${response.status} - ${JSON.stringify(data)}`);
+    }
     console.log('Image generation success:', data.imageUrl ? 'Got URL' : 'No URL');
     return data;
   } catch (error) {

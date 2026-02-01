@@ -1,7 +1,7 @@
 // JuiceBox Limited Edition Builder - Main App
 
-import { primaryFlavors, accents, baseTypes, variants } from './data/flavors.js';
-import { supabase, getCreations, createCreation, updateCreationImage, voteForCreation, getVisitorIp, hasVoted, generateCreationImage } from './lib/supabase.js';
+import { fruits, extras, primaryFlavors, accents, variants } from './data/flavors.js';
+import { supabase, getCreations, createCreation, updateCreationImage, voteForCreation, getVisitorIp, hasVoted, generateCreationImage, getVotedCreationIds } from './lib/supabase.js';
 
 // Constants
 const MAX_PRIMARY_FLAVORS = 3;
@@ -10,8 +10,7 @@ const MAX_PRIMARY_FLAVORS = 3;
 const state = {
   primaryFlavors: [], // Array of selected flavor IDs (max 3)
   accent: 'none',
-  baseType: 'normal',
-  variant: 'light',
+  variant: 'original',
   visitorIp: null,
   votedFor: new Set(),
   creations: [],
@@ -24,10 +23,11 @@ const state = {
 const elements = {
   tabs: document.querySelectorAll('.tab'),
   sections: document.querySelectorAll('.section'),
-  primaryGrid: document.getElementById('primary-flavors'),
+  fruitsGrid: document.getElementById('fruits-grid'),
+  extrasGrid: document.getElementById('extras-grid'),
   accentsGrid: document.getElementById('accents'),
-  baseTypeGroup: document.getElementById('base-type'),
   variantGroup: document.getElementById('variant'),
+  counterFill: document.getElementById('counter-fill'),
   previewEmoji: document.getElementById('preview-emoji'),
   previewName: document.getElementById('preview-name'),
   previewTags: document.getElementById('preview-tags'),
@@ -41,11 +41,83 @@ const elements = {
   generationOverlay: document.getElementById('generation-overlay'),
   generationEmoji: document.getElementById('generation-emoji'),
   generationName: document.getElementById('generation-name'),
+  progressBar: document.getElementById('progress-bar'),
+  progressText: document.getElementById('progress-text'),
+  voteModal: document.getElementById('vote-modal'),
+  voteModalName: document.getElementById('vote-modal-name'),
+  voteCancel: document.getElementById('vote-cancel'),
+  voteConfirm: document.getElementById('vote-confirm'),
+  emailModal: document.getElementById('email-modal'),
+  emailInput: document.getElementById('email-input'),
+  marketingCheckbox: document.getElementById('marketing-checkbox'),
+  emailCancel: document.getElementById('email-cancel'),
+  emailConfirm: document.getElementById('email-confirm'),
 };
+
+// Pending vote state
+let pendingVoteId = null;
+let pendingVoteName = null;
+
+// Progress animation controller
+let progressInterval = null;
+
+function startProgress() {
+  let progress = 0;
+  const messages = [
+    { at: 0, text: 'Entsafte die Früchte... 🍊' },
+    { at: 12, text: 'Klaut Eiswürfel aus der Tiefkühltruhe... 🧊' },
+    { at: 25, text: 'Mixt mit geheimer Formel... 🧪' },
+    { at: 38, text: 'Arrangiert die Garnierung... 🎨' },
+    { at: 50, text: 'Macht Fotos fürs Insta... 📸' },
+    { at: 62, text: 'Wischt Fingerabdrücke vom Glas... ✨' },
+    { at: 75, text: 'Perfektioniert den Splash-Effekt... 💦' },
+    { at: 85, text: 'Noch schnell Sonnenbrille aufsetzen... 😎' },
+    { at: 92, text: 'Gleich fertig, versprochen! 🤞' },
+  ];
+  
+  elements.progressBar.style.width = '0%';
+  
+  progressInterval = setInterval(() => {
+    // Slow down as we approach 95% (never quite reaches 100% until done)
+    if (progress < 60) {
+      progress += 1.5;
+    } else if (progress < 85) {
+      progress += 0.5;
+    } else if (progress < 95) {
+      progress += 0.1;
+    }
+    
+    elements.progressBar.style.width = `${Math.min(progress, 95)}%`;
+    
+    // Update message based on progress
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (progress >= messages[i].at) {
+        elements.progressText.textContent = messages[i].text;
+        break;
+      }
+    }
+  }, 200);
+}
+
+function stopProgress() {
+  if (progressInterval) {
+    clearInterval(progressInterval);
+    progressInterval = null;
+  }
+  // Fill to 100%
+  elements.progressBar.style.width = '100%';
+  elements.progressText.textContent = 'Fertig! 🎉';
+}
 
 // Initialize
 async function init() {
   state.visitorIp = await getVisitorIp();
+  
+  // Load existing votes for this IP
+  const votedIds = await getVotedCreationIds(state.visitorIp);
+  votedIds.forEach(id => state.votedFor.add(id));
+  console.log('Loaded existing votes:', votedIds.length);
+  
   renderFlavorGrids();
   renderToggles();
   setupEventListeners();
@@ -55,7 +127,16 @@ async function init() {
 
 // Render Flavor Grids
 function renderFlavorGrids() {
-  elements.primaryGrid.innerHTML = primaryFlavors.map(f => 
+  // Fruits
+  elements.fruitsGrid.innerHTML = fruits.map(f => 
+    `<button class="flavor-btn" data-id="${f.id}" data-type="primary">
+      <span class="emoji">${f.emoji}</span>
+      <span class="name">${f.name}</span>
+    </button>`
+  ).join('');
+  
+  // Extras (Kokos, Minze, etc.)
+  elements.extrasGrid.innerHTML = extras.map(f => 
     `<button class="flavor-btn" data-id="${f.id}" data-type="primary">
       <span class="emoji">${f.emoji}</span>
       <span class="name">${f.name}</span>
@@ -72,12 +153,6 @@ function renderFlavorGrids() {
 
 // Render Toggle Buttons
 function renderToggles() {
-  elements.baseTypeGroup.innerHTML = baseTypes.map(b => 
-    `<button class="toggle-btn ${state.baseType === b.id ? 'selected' : ''}" data-id="${b.id}" data-type="baseType">
-      ${b.name}
-    </button>`
-  ).join('');
-
   elements.variantGroup.innerHTML = variants.map(v => 
     `<button class="toggle-btn ${state.variant === v.id ? 'selected' : ''}" data-id="${v.id}" data-type="variant">
       ${v.name}
@@ -161,8 +236,11 @@ function selectFlavor(btn) {
 function updatePrimaryCounter() {
   const count = state.primaryFlavors.length;
   if (count > 0) {
-    elements.primaryCounter.style.display = 'inline-flex';
+    elements.primaryCounter.style.display = 'flex';
     elements.counterText.textContent = `${count}/${MAX_PRIMARY_FLAVORS} gewählt`;
+    if (elements.counterFill) {
+      elements.counterFill.style.width = `${(count / MAX_PRIMARY_FLAVORS) * 100}%`;
+    }
   } else {
     elements.primaryCounter.style.display = 'none';
   }
@@ -226,8 +304,7 @@ function updatePreview() {
   
   // Update tags
   const tags = [];
-  tags.push(state.baseType === 'eistee' ? 'Eistee' : 'Normal');
-  tags.push(state.variant === 'light' ? 'Light' : 'Original');
+  tags.push(state.variant === 'light' ? '💪 Light' : '🍬 Original');
   
   elements.previewTags.innerHTML = tags.map(t => `<span class="preview-tag">${t}</span>`).join('');
 }
@@ -241,13 +318,51 @@ function validateForm() {
   elements.submitBtn.disabled = !(hasValidName && hasFlavors);
 }
 
-// Submit Creation
-async function submitCreation() {
+// Show email modal before submitting
+function showEmailModal() {
+  elements.emailInput.value = '';
+  elements.marketingCheckbox.checked = true; // Pre-selected
+  elements.emailConfirm.disabled = true;
+  elements.emailModal.classList.remove('hidden');
+}
+
+// Hide email modal
+function hideEmailModal() {
+  elements.emailModal.classList.add('hidden');
+}
+
+// Validate email input
+function validateEmailInput() {
+  const email = elements.emailInput.value.trim();
+  const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  elements.emailConfirm.disabled = !isValid;
+}
+
+// Setup email modal listeners
+elements.emailInput.addEventListener('input', validateEmailInput);
+elements.emailCancel.addEventListener('click', hideEmailModal);
+elements.emailModal.addEventListener('click', (e) => {
+  if (e.target === elements.emailModal) hideEmailModal();
+});
+elements.emailConfirm.addEventListener('click', () => {
+  hideEmailModal();
+  processCreation();
+});
+
+// Submit button shows email modal first
+function submitCreation() {
+  showEmailModal();
+}
+
+// Actual creation process (after email is provided)
+async function processCreation() {
   const name = elements.nameInput.value.trim();
+  const email = elements.emailInput.value.trim();
+  const marketingConsent = elements.marketingCheckbox.checked;
   
   try {
     elements.submitBtn.disabled = true;
-    elements.submitBtn.textContent = '⏳ Wird eingereicht...';
+    elements.submitBtn.innerHTML = '<span class="btn-text">⏳ Wird erstellt...</span>';
     
     // Build emoji for overlay
     const selectedFlavors = state.primaryFlavors.map(id => primaryFlavors.find(f => f.id === id)).filter(Boolean);
@@ -261,9 +376,11 @@ async function submitCreation() {
       primary_flavor: state.primaryFlavors.join(','),
       secondary_flavor: null, // Not used anymore
       accent: state.accent !== 'none' ? state.accent : null,
-      base_type: state.baseType,
+      base_type: 'normal', // Default - not selectable anymore
       variant: state.variant,
       creator_ip: state.visitorIp,
+      creator_email: email,
+      marketing_consent: marketingConsent,
     };
     
     // Create the entry first
@@ -272,10 +389,11 @@ async function submitCreation() {
     // Store the ID for highlighting
     state.justCreatedId = creation.id;
     
-    // Show generation overlay
+    // Show generation overlay with progress bar
     elements.generationEmoji.textContent = emoji;
     elements.generationName.textContent = name;
     elements.generationOverlay.classList.remove('hidden');
+    startProgress();
     
     // Switch to vote tab (behind the overlay)
     switchTab('vote');
@@ -301,7 +419,10 @@ async function submitCreation() {
     
     // Hide overlay and reload leaderboard with highlight
     console.log('Hiding overlay, loading creations...');
-    elements.generationOverlay.classList.add('hidden');
+    stopProgress();
+    setTimeout(() => {
+      elements.generationOverlay.classList.add('hidden');
+    }, 500); // Small delay to show 100%
     await loadCreationsWithHighlight(creation.id);
     console.log('Done!');
     
@@ -309,11 +430,20 @@ async function submitCreation() {
     
   } catch (error) {
     console.error('Submit error:', error);
+    stopProgress();
     elements.generationOverlay.classList.add('hidden');
-    showToast('❌ Fehler beim Einreichen. Versuch es nochmal.', 'error');
+    
+    // If email already exists, redirect to leaderboard
+    if (error.code === 'EMAIL_EXISTS') {
+      showToast(`Du hast bereits teilgenommen! Deine Kreation: "${error.existingCreation}"`, 'error');
+      switchTab('vote');
+      loadCreations();
+    } else {
+      showToast(error.message || '❌ Fehler beim Einreichen. Versuch es nochmal.', 'error');
+    }
   } finally {
     elements.submitBtn.disabled = false;
-    elements.submitBtn.textContent = '🚀 Einreichen';
+    elements.submitBtn.innerHTML = '<span class="btn-text">🚀 Ab in die Challenge!</span><span class="btn-shine"></span>';
   }
 }
 
@@ -414,15 +544,15 @@ function renderLeaderboard() {
     const isJustCreated = c.id === state.justCreatedId;
     
     // Badge for user's own creation
-    const yourBadge = isJustCreated ? '<span class="your-creation-badge">Deine Kreation</span>' : '';
+    const yourBadge = isJustCreated ? '<span class="your-creation-badge">✨ Dein Mix!</span>' : '';
     
-    // Type badge
-    const typeBadge = `${c.base_type === 'eistee' ? '🧊 Eistee' : '🍹 Classic'} ${c.variant === 'light' ? 'Light' : ''}`.trim();
+    // Variant badge
+    const variantBadge = c.variant === 'light' ? '💪 Light' : '🍬 Original';
     
     return `
       <div class="creation-card ${c.image_url ? 'has-image' : ''} ${isJustCreated ? 'highlighted' : ''}">
         <div class="creation-image-wrapper">
-          <div class="creation-rank ${isTop3 ? 'top-3' : ''}">${isJustCreated ? '✨ Neu' : '#' + rank}</div>
+          <div class="creation-rank ${isTop3 ? 'top-3' : ''}">${isJustCreated ? '✨' : '#' + rank}</div>
           ${c.image_url 
             ? `<img src="${c.image_url}" alt="${c.name}" class="creation-image" loading="lazy">`
             : `<div class="creation-emoji">${emoji}</div>`
@@ -431,8 +561,7 @@ function renderLeaderboard() {
         <div class="creation-body">
           <div class="creation-info">
             <div class="creation-name">${c.name}${yourBadge}</div>
-            <div class="creation-details">${details}</div>
-            <div class="creation-details">${typeBadge}</div>
+            <div class="creation-details">${details} • ${variantBadge}</div>
           </div>
           <div class="creation-vote">
             <span class="vote-count">${c.votes_count} 👍</span>
@@ -447,12 +576,35 @@ function renderLeaderboard() {
   
   // Add vote listeners
   document.querySelectorAll('.vote-btn:not(.voted)').forEach(btn => {
-    btn.addEventListener('click', () => vote(btn.dataset.id));
+    btn.addEventListener('click', () => showVoteConfirmation(btn.dataset.id));
   });
 }
 
-// Vote
-async function vote(creationId) {
+// Show vote confirmation modal
+function showVoteConfirmation(creationId) {
+  const creation = state.creations.find(c => c.id === creationId);
+  if (!creation) return;
+  
+  pendingVoteId = creationId;
+  pendingVoteName = creation.name;
+  elements.voteModalName.textContent = `"${creation.name}"`;
+  elements.voteModal.classList.remove('hidden');
+}
+
+// Hide vote modal
+function hideVoteModal() {
+  elements.voteModal.classList.add('hidden');
+  pendingVoteId = null;
+  pendingVoteName = null;
+}
+
+// Confirm vote
+async function confirmVote() {
+  if (!pendingVoteId) return;
+  
+  const creationId = pendingVoteId;
+  hideVoteModal();
+  
   try {
     await voteForCreation(creationId, state.visitorIp);
     state.votedFor.add(creationId);
@@ -468,6 +620,15 @@ async function vote(creationId) {
     showToast(error.message || '❌ Fehler beim Abstimmen.', 'error');
   }
 }
+
+// Setup modal event listeners
+elements.voteCancel.addEventListener('click', hideVoteModal);
+elements.voteConfirm.addEventListener('click', confirmVote);
+
+// Close modal on backdrop click
+elements.voteModal.addEventListener('click', (e) => {
+  if (e.target === elements.voteModal) hideVoteModal();
+});
 
 // Toast
 function showToast(message, type = '') {
