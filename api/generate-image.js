@@ -1,6 +1,13 @@
 // Vercel Serverless Function: Generate JuiceBox Limited Edition Image
 // Uses OpenRouter API with Gemini 3 Pro Image (Nano Banana Pro)
 
+import { createClient } from '@supabase/supabase-js';
+
+// Supabase client for storage
+const supabaseUrl = 'https://rpqbjfbkrkgnrebcysta.supabase.co';
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY || 'sb_publishable_6Fbwm3Fi3FQPdrSRl3E18g_agGdMHWr';
+const supabase = createClient(supabaseUrl, supabaseKey);
+
 export default async function handler(req, res) {
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -86,9 +93,13 @@ export default async function handler(req, res) {
 
     const prompt = `Generate an image: Professional product promotional poster for JuiceBox "${name}" Limited Edition.
 
+IMPORTANT: At the TOP of the image, include a centered "JuiceBox Limited" logo/text banner in elegant white typography with subtle outline.
+
 Scene: elegant garden terrace, bright daylight, sun-drenched outdoor luxury atmosphere, vibrant natural light, refreshing premium exclusive summery mood.
 
 Central subject: A tall faceted glass with ${beverageColor} "${name}" beverage with ice cubes, dynamic splash effect. Floating garnishes: ${garnishes} around the glass. Behind it, a tilted dark grey JuiceBox bag-in-box container with white branding.
+
+At the bottom: Show the product name "${name}" in bold elegant typography.
 
 Style: professional advertising photography, 4K quality, appetizing, premium feel, clean composition.`;
 
@@ -126,51 +137,89 @@ Style: professional advertising photography, 4K quality, appetizing, premium fee
     const data = await response.json();
     console.log('OpenRouter response received');
     
-    // Extract image URL from response
-    let imageUrl = null;
+    // Extract image data from response
+    let base64Data = null;
+    let mimeType = 'image/png';
     const msg = data.choices?.[0]?.message;
     
     // Primary: Check for images array (Gemini 3 Pro Image format via OpenRouter)
     if (msg?.images && Array.isArray(msg.images) && msg.images.length > 0) {
       const img = msg.images[0];
       if (img.image_url?.url) {
-        imageUrl = img.image_url.url;
-      } else if (img.url) {
-        imageUrl = img.url;
+        const dataUrl = img.image_url.url;
+        if (dataUrl.startsWith('data:')) {
+          const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+          if (match) {
+            mimeType = match[1];
+            base64Data = match[2];
+          }
+        }
       }
     }
     
     // Fallback: Check content array
-    if (!imageUrl && msg?.content) {
+    if (!base64Data && msg?.content) {
       const content = msg.content;
       if (Array.isArray(content)) {
         for (const part of content) {
           if (part.inline_data?.data && part.inline_data?.mime_type) {
-            imageUrl = `data:${part.inline_data.mime_type};base64,${part.inline_data.data}`;
+            base64Data = part.inline_data.data;
+            mimeType = part.inline_data.mime_type;
             break;
           }
-          if (part.type === 'image_url' && part.image_url?.url) {
-            imageUrl = part.image_url.url;
-            break;
-          }
-          if (part.type === 'image' && part.url) {
-            imageUrl = part.url;
-            break;
-          }
-        }
-      } else if (typeof content === 'string' && content.includes('data:image')) {
-        const match = content.match(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/);
-        if (match) {
-          imageUrl = match[0];
         }
       }
     }
     
-    console.log('Extracted image URL:', imageUrl ? `Found (length: ${imageUrl.length})` : 'Not found');
+    if (!base64Data) {
+      console.error('No image data found in response');
+      return res.status(500).json({ 
+        error: 'No image generated',
+        details: 'API response did not contain image data'
+      });
+    }
+    
+    console.log('Image data extracted, uploading to storage...');
+    
+    // Convert base64 to buffer
+    const imageBuffer = Buffer.from(base64Data, 'base64');
+    
+    // Generate unique filename
+    const timestamp = Date.now();
+    const safeName = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+    const ext = mimeType.includes('png') ? 'png' : 'jpg';
+    const filename = `creations/${safeName}-${timestamp}.${ext}`;
+    
+    // Upload to Supabase Storage
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('images')
+      .upload(filename, imageBuffer, {
+        contentType: mimeType,
+        upsert: true,
+      });
+    
+    if (uploadError) {
+      console.error('Upload error:', uploadError);
+      // Fall back to returning base64 data URL
+      return res.status(200).json({
+        success: true,
+        imageUrl: `data:${mimeType};base64,${base64Data}`,
+        prompt: prompt,
+        warning: 'Image stored as base64 (upload failed)',
+      });
+    }
+    
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('images')
+      .getPublicUrl(filename);
+    
+    const publicUrl = urlData?.publicUrl;
+    console.log('Image uploaded successfully:', publicUrl);
     
     return res.status(200).json({
       success: true,
-      imageUrl: imageUrl,
+      imageUrl: publicUrl,
       prompt: prompt,
     });
 
