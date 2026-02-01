@@ -1,13 +1,6 @@
 // Vercel Serverless Function: Generate JuiceBox Limited Edition Image
 // Uses OpenRouter API with Gemini 3 Pro Image (Nano Banana Pro)
 
-import { createClient } from '@supabase/supabase-js';
-
-// Supabase client for storage
-const supabaseUrl = 'https://rpqbjfbkrkgnrebcysta.supabase.co';
-const supabaseKey = process.env.SUPABASE_SERVICE_KEY || 'sb_publishable_6Fbwm3Fi3FQPdrSRl3E18g_agGdMHWr';
-const supabase = createClient(supabaseUrl, supabaseKey);
-
 export default async function handler(req, res) {
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -181,41 +174,56 @@ Style: professional advertising photography, 4K quality, appetizing, premium fee
     
     console.log('Image data extracted, uploading to storage...');
     
-    // Convert base64 to buffer
+    const imageSizeKB = Math.round(base64Data.length * 0.75 / 1024);
+    console.log(`Image size: ~${imageSizeKB}KB`);
+    
+    // Upload to catbox.moe (free, no API key required)
     const imageBuffer = Buffer.from(base64Data, 'base64');
-    
-    // Generate unique filename
-    const timestamp = Date.now();
-    const safeName = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
     const ext = mimeType.includes('png') ? 'png' : 'jpg';
-    const filename = `creations/${safeName}-${timestamp}.${ext}`;
+    const filename = `juicebox-${Date.now()}.${ext}`;
     
-    // Upload to Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('images')
-      .upload(filename, imageBuffer, {
-        contentType: mimeType,
-        upsert: true,
-      });
+    // Create form data for catbox
+    const boundary = '----WebKitFormBoundary' + Math.random().toString(36).substr(2);
+    const body = Buffer.concat([
+      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="reqtype"\r\n\r\nfileupload\r\n`),
+      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="fileToUpload"; filename="${filename}"\r\nContent-Type: ${mimeType}\r\n\r\n`),
+      imageBuffer,
+      Buffer.from(`\r\n--${boundary}--\r\n`),
+    ]);
     
-    if (uploadError) {
-      console.error('Upload error:', uploadError);
-      // Fall back to returning base64 data URL
-      return res.status(200).json({
-        success: true,
-        imageUrl: `data:${mimeType};base64,${base64Data}`,
-        prompt: prompt,
-        warning: 'Image stored as base64 (upload failed)',
-      });
+    const uploadResponse = await fetch('https://catbox.moe/user/api.php', {
+      method: 'POST',
+      headers: {
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+      },
+      body: body,
+    });
+    
+    let publicUrl = null;
+    
+    if (uploadResponse.ok) {
+      const responseText = await uploadResponse.text();
+      if (responseText.startsWith('https://')) {
+        publicUrl = responseText.trim();
+        console.log('Image uploaded to catbox:', publicUrl);
+      }
+    } else {
+      console.error('catbox upload failed:', await uploadResponse.text());
     }
     
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from('images')
-      .getPublicUrl(filename);
-    
-    const publicUrl = urlData?.publicUrl;
-    console.log('Image uploaded successfully:', publicUrl);
+    // Fallback: return base64 if upload failed
+    if (!publicUrl) {
+      // If base64 is too large (>500KB), it won't work well
+      if (imageSizeKB > 500) {
+        return res.status(200).json({
+          success: true,
+          imageUrl: null,
+          prompt: prompt,
+          warning: 'Image too large and upload failed',
+        });
+      }
+      publicUrl = `data:${mimeType};base64,${base64Data}`;
+    }
     
     return res.status(200).json({
       success: true,
