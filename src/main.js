@@ -284,11 +284,17 @@ async function submitCreation() {
     resetForm();
     
     // Generate image
+    console.log('Starting image generation...');
     try {
       const imageResult = await generateCreationImage(creation);
+      console.log('Image result:', imageResult);
       if (imageResult && imageResult.imageUrl) {
+        console.log('Saving image URL to database...');
         await updateCreationImage(creation.id, imageResult.imageUrl);
         creation.image_url = imageResult.imageUrl;
+        console.log('Image URL saved successfully');
+      } else {
+        console.warn('No image URL in result');
       }
     } catch (imgError) {
       console.error('Image generation error:', imgError);
@@ -296,8 +302,10 @@ async function submitCreation() {
     }
     
     // Hide overlay and reload leaderboard with highlight
+    console.log('Hiding overlay, loading creations...');
     elements.generationOverlay.classList.add('hidden');
     await loadCreationsWithHighlight(creation.id);
+    console.log('Done!');
     
     showToast('🎉 Deine Kreation ist live!', 'success');
     

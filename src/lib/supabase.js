@@ -76,8 +76,14 @@ export async function getVisitorIp() {
   }
 }
 
-// Generate image for creation
+// Generate image for creation (with extended timeout)
 export async function generateCreationImage(creation) {
+  console.log('Starting image generation for:', creation.name);
+  
+  // Create AbortController with 90 second timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 90000);
+  
   try {
     const response = await fetch('/api/generate-image', {
       method: 'POST',
@@ -91,16 +97,29 @@ export async function generateCreationImage(creation) {
         baseType: creation.base_type,
         variant: creation.variant,
       }),
+      signal: controller.signal,
     });
     
+    clearTimeout(timeoutId);
+    
+    console.log('Image generation response status:', response.status);
+    
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Image generation failed:', errorText);
       throw new Error('Image generation failed');
     }
     
     const data = await response.json();
+    console.log('Image generation success:', data.imageUrl ? 'Got URL' : 'No URL');
     return data;
   } catch (error) {
-    console.error('Image generation error:', error);
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      console.error('Image generation timed out after 90 seconds');
+    } else {
+      console.error('Image generation error:', error);
+    }
     return null;
   }
 }
