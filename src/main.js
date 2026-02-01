@@ -17,6 +17,7 @@ const state = {
   creations: [],
   offset: 0,
   limit: 10,
+  justCreatedId: null, // ID of the creation just submitted (for highlighting)
 };
 
 // DOM Elements
@@ -37,6 +38,9 @@ const elements = {
   leaderboard: document.getElementById('leaderboard'),
   loadMoreBtn: document.getElementById('load-more'),
   toast: document.getElementById('toast'),
+  generationOverlay: document.getElementById('generation-overlay'),
+  generationEmoji: document.getElementById('generation-emoji'),
+  generationName: document.getElementById('generation-name'),
 };
 
 // Initialize
@@ -245,6 +249,12 @@ async function submitCreation() {
     elements.submitBtn.disabled = true;
     elements.submitBtn.textContent = '⏳ Wird eingereicht...';
     
+    // Build emoji for overlay
+    const selectedFlavors = state.primaryFlavors.map(id => primaryFlavors.find(f => f.id === id)).filter(Boolean);
+    let emoji = selectedFlavors.length > 0 ? selectedFlavors.map(f => f.emoji).join('') : '🧃';
+    const accent = accents.find(a => a.id === state.accent);
+    if (accent && accent.id !== 'none') emoji += accent.emoji;
+    
     // Join primary flavors with comma
     const creationData = {
       name,
@@ -259,29 +269,73 @@ async function submitCreation() {
     // Create the entry first
     const creation = await createCreation(creationData);
     
-    showToast('🎉 Deine Kreation wurde eingereicht!', 'success');
+    // Store the ID for highlighting
+    state.justCreatedId = creation.id;
     
-    // Generate image in background
-    elements.submitBtn.textContent = '🎨 Bild wird generiert...';
+    // Show generation overlay
+    elements.generationEmoji.textContent = emoji;
+    elements.generationName.textContent = name;
+    elements.generationOverlay.classList.remove('hidden');
     
+    // Switch to vote tab (behind the overlay)
+    switchTab('vote');
+    
+    // Reset the form now
+    resetForm();
+    
+    // Generate image
     try {
       const imageResult = await generateCreationImage(creation);
       if (imageResult && imageResult.imageUrl) {
         await updateCreationImage(creation.id, imageResult.imageUrl);
-        showToast('🖼️ Produktbild wurde erstellt!', 'success');
+        creation.image_url = imageResult.imageUrl;
       }
     } catch (imgError) {
       console.error('Image generation error:', imgError);
-      // Don't fail the whole submission if image fails
+      // Continue even if image fails
     }
     
-    resetForm();
+    // Hide overlay and reload leaderboard with highlight
+    elements.generationOverlay.classList.add('hidden');
+    await loadCreationsWithHighlight(creation.id);
+    
+    showToast('🎉 Deine Kreation ist live!', 'success');
+    
   } catch (error) {
     console.error('Submit error:', error);
+    elements.generationOverlay.classList.add('hidden');
     showToast('❌ Fehler beim Einreichen. Versuch es nochmal.', 'error');
   } finally {
     elements.submitBtn.disabled = false;
     elements.submitBtn.textContent = '🚀 Einreichen';
+  }
+}
+
+// Load creations with a specific creation highlighted at top
+async function loadCreationsWithHighlight(highlightId) {
+  try {
+    state.offset = 0;
+    elements.leaderboard.innerHTML = '<div class="loading">Lädt...</div>';
+    
+    const creations = await getCreations(state.limit, state.offset);
+    state.creations = creations;
+    
+    // Sort so highlighted creation is at top (if not already)
+    const highlightIndex = state.creations.findIndex(c => c.id === highlightId);
+    if (highlightIndex > 0) {
+      const [highlighted] = state.creations.splice(highlightIndex, 1);
+      state.creations.unshift(highlighted);
+    }
+    
+    renderLeaderboard();
+    elements.loadMoreBtn.style.display = creations.length === state.limit ? 'block' : 'none';
+    
+    // Scroll to top to see the new creation
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+  } catch (error) {
+    console.error('Load error:', error);
+    elements.leaderboard.innerHTML = '<div class="empty-state">Fehler beim Laden.</div>';
   }
 }
 
@@ -351,18 +405,22 @@ function renderLeaderboard() {
     const voted = state.votedFor.has(c.id);
     const rank = state.offset + i + 1;
     const isTop3 = rank <= 3;
+    const isJustCreated = c.id === state.justCreatedId;
     
     // Image display
     const imageHtml = c.image_url 
       ? `<img src="${c.image_url}" alt="${c.name}" class="creation-image" loading="lazy">`
       : `<div class="creation-emoji">${emoji}</div>`;
     
+    // Badge for user's own creation
+    const yourBadge = isJustCreated ? '<span class="your-creation-badge">Deine Kreation</span>' : '';
+    
     return `
-      <div class="creation-card ${c.image_url ? 'has-image' : ''}">
-        <div class="creation-rank ${isTop3 ? 'top-3' : ''}">#${rank}</div>
+      <div class="creation-card ${c.image_url ? 'has-image' : ''} ${isJustCreated ? 'highlighted' : ''}">
+        <div class="creation-rank ${isTop3 ? 'top-3' : ''}">${isJustCreated ? '✨' : '#' + rank}</div>
         ${imageHtml}
         <div class="creation-info">
-          <div class="creation-name">${c.name}</div>
+          <div class="creation-name">${c.name}${yourBadge}</div>
           <div class="creation-details">${details} | ${c.base_type === 'eistee' ? 'Eistee' : 'Normal'} ${c.variant === 'light' ? 'Light' : 'Original'}</div>
         </div>
         <div class="creation-vote">
