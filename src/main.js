@@ -1,7 +1,7 @@
 // JuiceBox Limited Edition Builder - Main App
 
 import { fruits, extras, primaryFlavors, accents, variants } from './data/flavors.js';
-import { supabase, getCreations, createCreation, updateCreationImage, voteForCreation, getVisitorIp, hasVoted, generateCreationImage, getVotedCreationIds } from './lib/supabase.js';
+import { supabase, getCreations, createCreation, updateCreationImage, voteForCreation, removeVote, getVisitorIp, hasVoted, generateCreationImage, getVotedCreationIds } from './lib/supabase.js';
 
 // Constants
 const MAX_PRIMARY_FLAVORS = 3;
@@ -746,6 +746,7 @@ function renderLeaderboard() {
     let voteButtonClass = '';
     let voteButtonText = '👍 Vote';
     let voteButtonDisabled = false;
+    let hideVoteButton = false;
     
     if (isOwn) {
       voteButtonClass = 'own';
@@ -754,10 +755,10 @@ function renderLeaderboard() {
     } else if (voted) {
       voteButtonClass = 'voted';
       voteButtonText = '✓ Gewählt';
-      voteButtonDisabled = true;
+      voteButtonDisabled = false; // Allow clicking to remove vote
     } else if (votedForId) {
-      // User already voted for something else
-      voteButtonDisabled = true;
+      // User already voted for something else - hide button
+      hideVoteButton = true;
     }
     
     return `
@@ -776,9 +777,11 @@ function renderLeaderboard() {
           </div>
           <div class="creation-vote">
             <span class="vote-count">${c.votes_count} 👍</span>
-            <button class="vote-btn ${voteButtonClass}" data-id="${c.id}" ${voteButtonDisabled ? 'disabled' : ''}>
-              ${voteButtonText}
-            </button>
+            ${hideVoteButton ? '' : `
+              <button class="vote-btn ${voteButtonClass}" data-id="${c.id}" ${voteButtonDisabled ? 'disabled' : ''}>
+                ${voteButtonText}
+              </button>
+            `}
           </div>
         </div>
       </div>
@@ -788,6 +791,11 @@ function renderLeaderboard() {
   // Add vote listeners
   document.querySelectorAll('.vote-btn:not(.voted):not(.own):not([disabled])').forEach(btn => {
     btn.addEventListener('click', () => showVoteConfirmation(btn.dataset.id));
+  });
+  
+  // Add remove vote listeners (for voted buttons)
+  document.querySelectorAll('.vote-btn.voted').forEach(btn => {
+    btn.addEventListener('click', () => showRemoveVoteConfirmation(btn.dataset.id));
   });
   
   // Update voted banner
@@ -883,6 +891,59 @@ async function confirmVote() {
   } catch (error) {
     console.error('Vote error:', error);
     showToast(error.message || '❌ Fehler beim Abstimmen.', 'error');
+  }
+}
+
+// Show remove vote confirmation
+function showRemoveVoteConfirmation(creationId) {
+  const creation = state.creations.find(c => c.id === creationId);
+  if (!creation) return;
+  
+  pendingVoteId = creationId;
+  pendingVoteName = creation.name;
+  
+  // Reuse vote modal but change text
+  elements.voteModalName.textContent = `"${creation.name}"`;
+  document.querySelector('#vote-modal h3').textContent = 'Stimme entfernen?';
+  document.querySelector('#vote-modal p:first-of-type').textContent = 'Willst du deine Stimme für';
+  document.querySelector('#vote-modal .modal-warning').textContent = '⚠️ Du kannst danach für eine andere Sorte stimmen.';
+  document.getElementById('vote-confirm').textContent = '🗑️ Entfernen';
+  document.getElementById('vote-confirm').onclick = confirmRemoveVote;
+  elements.voteModal.classList.remove('hidden');
+}
+
+// Confirm remove vote
+async function confirmRemoveVote() {
+  if (!pendingVoteId) return;
+  
+  const creationId = pendingVoteId;
+  hideVoteModal();
+  
+  // Reset modal text for next use
+  document.querySelector('#vote-modal h3').textContent = 'Vote abgeben?';
+  document.querySelector('#vote-modal p:first-of-type').textContent = 'Du willst für';
+  document.querySelector('#vote-modal .modal-warning').textContent = '⚠️ Nur ein Vote pro Person möglich!';
+  document.getElementById('vote-confirm').textContent = '✅ Let\'s go!';
+  document.getElementById('vote-confirm').onclick = confirmVote;
+  
+  try {
+    await removeVote(creationId, state.visitorIp);
+    state.votedFor.delete(creationId);
+    
+    // Clear localStorage
+    localStorage.removeItem('juicebox-voted-for');
+    localStorage.removeItem('juicebox-voted-for-name');
+    
+    // Update UI optimistically
+    const creation = state.creations.find(c => c.id === creationId);
+    if (creation && creation.votes_count > 0) creation.votes_count--;
+    
+    renderLeaderboard();
+    updateVotedBanner();
+    showToast('🗑️ Stimme entfernt. Du kannst jetzt neu wählen!', 'success');
+  } catch (error) {
+    console.error('Remove vote error:', error);
+    showToast(error.message || '❌ Fehler beim Entfernen.', 'error');
   }
 }
 

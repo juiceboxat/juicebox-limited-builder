@@ -99,6 +99,24 @@ export async function voteForCreation(creationId, voterIp) {
   return data;
 }
 
+export async function removeVote(creationId, voterIp) {
+  // Use API endpoint (has service_role key)
+  const response = await fetch('/api/remove-vote', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ creationId, voterIp }),
+  });
+  
+  const data = await response.json();
+  
+  if (!response.ok || !data.success) {
+    console.error('Remove vote error:', data);
+    throw new Error('Fehler beim Entfernen der Stimme.');
+  }
+  
+  return data;
+}
+
 // Get all creation IDs this IP has voted for
 export async function getVotedCreationIds(voterIp) {
   const { data, error } = await supabase
