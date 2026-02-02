@@ -1119,5 +1119,31 @@ function showToast(message, type = '') {
   }, 3000);
 }
 
+// View Toggle for Leaderboard
+const viewButtons = document.querySelectorAll('.view-btn');
+const leaderboard = document.getElementById('leaderboard');
+
+// Load saved view preference
+const savedView = localStorage.getItem('juicebox-view') || 'grid-2';
+leaderboard?.classList.add(`view-${savedView}`);
+document.querySelector(`.view-btn[data-view="${savedView}"]`)?.classList.add('active');
+
+viewButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const view = btn.dataset.view;
+    
+    // Update active button
+    viewButtons.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    
+    // Update leaderboard class
+    leaderboard?.classList.remove('view-list', 'view-grid-2', 'view-grid-1');
+    leaderboard?.classList.add(`view-${view}`);
+    
+    // Save preference
+    localStorage.setItem('juicebox-view', view);
+  });
+});
+
 // Start
 init();
