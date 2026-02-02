@@ -76,32 +76,25 @@ export async function updateCreationImage(creationId, imageUrl) {
 }
 
 export async function voteForCreation(creationId, voterIp) {
-  // Insert vote
+  // Use RPC function for atomic vote + increment
   const { data, error } = await supabase
-    .from('votes')
-    .insert([{ creation_id: creationId, voter_ip: voterIp }]);
+    .rpc('submit_vote', { 
+      p_creation_id: creationId, 
+      p_voter_ip: voterIp 
+    });
   
   if (error) {
-    if (error.code === '23505') {
-      throw new Error('Du hast bereits für diese Kreation gestimmt!');
-    }
-    throw error;
+    console.error('Vote RPC error:', error);
+    throw new Error('Fehler beim Abstimmen. Bitte versuche es erneut.');
   }
   
-  // Manually increment votes_count
-  // First get current count
-  const { data: creation } = await supabase
-    .from('creations')
-    .select('votes_count')
-    .eq('id', creationId)
-    .single();
-  
-  const newCount = (creation?.votes_count || 0) + 1;
-  
-  await supabase
-    .from('creations')
-    .update({ votes_count: newCount })
-    .eq('id', creationId);
+  // Check RPC result
+  if (data && !data.success) {
+    if (data.error === 'ALREADY_VOTED') {
+      throw new Error('Du hast bereits für diese Kreation gestimmt!');
+    }
+    throw new Error(data.error || 'Fehler beim Abstimmen.');
+  }
   
   return data;
 }

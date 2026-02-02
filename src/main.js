@@ -718,7 +718,9 @@ function renderLeaderboard() {
       accent && accent.id !== 'none' ? accent.name : null,
     ].filter(Boolean).join(' + ');
     
-    const voted = state.votedFor.has(c.id) || c.id === votedForId;
+    // Check if user voted for this - localStorage is authoritative for current session
+    // state.votedFor contains all votes by this IP (from DB), but we only show ONE as "voted"
+    const voted = c.id === votedForId;
     const isOwn = c.id === ownCreationId || c.id === state.justCreatedId;
     const rank = state.offset + i + 1;
     const isTop3 = rank <= 3;
