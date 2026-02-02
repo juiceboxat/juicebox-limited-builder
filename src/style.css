@@ -1225,6 +1225,225 @@ body {
   }
 }
 
+/* Success Section (after creation) */
+.success-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.success-creation {
+  text-align: center;
+  padding: var(--space-xl);
+  position: relative;
+}
+
+.success-badge {
+  position: absolute;
+  top: var(--space-md);
+  right: var(--space-md);
+  background: var(--success);
+  color: var(--white);
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-full);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.success-creation-image {
+  width: 150px;
+  height: 150px;
+  margin: 0 auto var(--space-lg);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.success-creation-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.success-emoji {
+  font-size: 4rem;
+}
+
+.success-creation-name {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--dark);
+  margin-bottom: var(--space-xs);
+}
+
+.success-creation-details {
+  color: var(--gray);
+  margin-bottom: var(--space-md);
+}
+
+.success-pitch {
+  font-size: 1rem;
+  color: var(--dark);
+  line-height: 1.5;
+}
+
+.success-share {
+  padding: var(--space-lg);
+  text-align: center;
+}
+
+.success-share h3 {
+  margin-bottom: var(--space-md);
+  color: var(--dark);
+}
+
+.share-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.btn-share-main {
+  background: var(--secondary);
+  color: var(--white);
+  border: none;
+  padding: var(--space-md) var(--space-xl);
+  border-radius: var(--radius-full);
+  font-family: inherit;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-share-main:hover {
+  background: #e55a2b;
+  transform: scale(1.02);
+}
+
+.btn-share-main.copied {
+  background: var(--success);
+}
+
+.social-share-buttons {
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.btn-social {
+  padding: var(--space-sm) var(--space-lg);
+  border: none;
+  border-radius: var(--radius-full);
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--white);
+}
+
+.btn-whatsapp {
+  background: #25D366;
+}
+
+.btn-instagram {
+  background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+}
+
+.btn-twitter {
+  background: #000;
+}
+
+.btn-social:hover {
+  transform: scale(1.05);
+  opacity: 0.9;
+}
+
+.share-info {
+  font-size: 0.9rem;
+  color: var(--gray);
+}
+
+.success-starter-set {
+  padding: var(--space-lg);
+  text-align: center;
+  position: relative;
+  background: linear-gradient(135deg, rgba(114, 165, 39, 0.1), rgba(114, 165, 39, 0.05));
+  border: 2px solid var(--primary);
+}
+
+.starter-set-badge {
+  position: absolute;
+  top: var(--space-md);
+  left: var(--space-md);
+  background: var(--primary);
+  color: var(--white);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.success-starter-set h3 {
+  margin-bottom: var(--space-sm);
+  color: var(--dark);
+}
+
+.starter-set-pitch {
+  color: var(--gray);
+  margin-bottom: var(--space-md);
+}
+
+.starter-set-features {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+}
+
+.starter-set-features .feature {
+  background: var(--white);
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-full);
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--primary-dark);
+}
+
+.btn-starter-set {
+  background: var(--primary);
+  color: var(--white);
+  border: none;
+  padding: var(--space-md) var(--space-xl);
+  border-radius: var(--radius-full);
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.btn-starter-set:hover {
+  background: var(--primary-dark);
+  transform: scale(1.02);
+}
+
+.success-footer {
+  text-align: center;
+}
+
 /* Toast */
 .toast {
   position: fixed;

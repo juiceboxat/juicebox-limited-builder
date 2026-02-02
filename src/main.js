@@ -173,6 +173,7 @@ async function init() {
   renderToggles();
   setupEventListeners();
   setupShareButton();
+  setupSuccessPageListeners();
   updatePreview();
   updatePrimaryCounter();
   
@@ -576,9 +577,6 @@ async function processCreation() {
     elements.generationOverlay.classList.remove('hidden');
     startProgress();
     
-    // Switch to vote tab (behind the overlay)
-    switchTab('vote');
-    
     // Reset the form now
     resetForm();
     
@@ -598,16 +596,16 @@ async function processCreation() {
       // Continue even if image fails
     }
     
-    // Hide overlay and reload leaderboard with highlight
-    console.log('Hiding overlay, loading creations...');
+    // Hide overlay and show success page
+    console.log('Hiding overlay, showing success page...');
     stopProgress();
     setTimeout(() => {
       elements.generationOverlay.classList.add('hidden');
-    }, 500); // Small delay to show 100%
-    await loadCreationsWithHighlight(creation.id);
-    console.log('Done!');
+    }, 500);
     
-    showToast('🎉 Deine Kreation ist live!', 'success');
+    // Show success section with creation details
+    showSuccessPage(creation, selectedFlavors, accent);
+    console.log('Done!');
     
   } catch (error) {
     console.error('Submit error:', error);
@@ -626,6 +624,124 @@ async function processCreation() {
     elements.submitBtn.disabled = false;
     elements.submitBtn.innerHTML = '<span class="btn-text">🚀 Ab in die Challenge!</span><span class="btn-shine"></span>';
   }
+}
+
+// Show success page after creation
+function showSuccessPage(creation, selectedFlavors, accent) {
+  // Switch to success section
+  switchTab('success');
+  
+  // Build emoji
+  let emoji = selectedFlavors.length > 0 
+    ? selectedFlavors.map(f => f.emoji).join('')
+    : '🧃';
+  if (accent && accent.id !== 'none') emoji += accent.emoji;
+  
+  // Build details
+  const details = [
+    ...selectedFlavors.map(f => f.name),
+    accent && accent.id !== 'none' ? accent.name : null,
+    creation.variant === 'light' ? '💪 Light' : '🍬 Original',
+  ].filter(Boolean).join(' • ');
+  
+  // Update success page elements
+  const successEmoji = document.getElementById('success-emoji');
+  const successImage = document.getElementById('success-creation-image');
+  const successName = document.getElementById('success-creation-name');
+  const successDetails = document.getElementById('success-creation-details');
+  const similarFlavor = document.getElementById('similar-flavor');
+  
+  if (creation.image_url) {
+    successImage.innerHTML = `<img src="${creation.image_url}" alt="${creation.name}">`;
+  } else {
+    successImage.innerHTML = `<span class="success-emoji">${emoji}</span>`;
+  }
+  
+  successName.textContent = creation.name;
+  successDetails.textContent = details;
+  
+  // Set similar flavor for Starter Set pitch
+  if (selectedFlavors.length > 0) {
+    similarFlavor.textContent = selectedFlavors[0].name;
+  }
+  
+  // Store creation data for share functions
+  window.currentCreation = creation;
+  
+  // Scroll to top
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Setup success page event listeners
+function setupSuccessPageListeners() {
+  // Copy link button
+  document.getElementById('success-copy-link')?.addEventListener('click', async () => {
+    const creation = window.currentCreation;
+    if (!creation) return;
+    
+    const shareUrl = `${window.location.origin}${window.location.pathname}?vote=${creation.id}`;
+    
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      const btn = document.getElementById('success-copy-link');
+      btn.classList.add('copied');
+      btn.textContent = '✅ Link kopiert!';
+      showToast('🔗 Link kopiert!', 'success');
+      
+      setTimeout(() => {
+        btn.classList.remove('copied');
+        btn.textContent = '🔗 Link kopieren';
+      }, 3000);
+    } catch (err) {
+      // Fallback
+      const textArea = document.createElement('textarea');
+      textArea.value = shareUrl;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      showToast('🔗 Link kopiert!', 'success');
+    }
+  });
+  
+  // WhatsApp share
+  document.getElementById('share-whatsapp')?.addEventListener('click', () => {
+    const creation = window.currentCreation;
+    if (!creation) return;
+    const shareUrl = `${window.location.origin}${window.location.pathname}?vote=${creation.id}`;
+    const text = `Ich hab meine eigene JuiceBox Limited Edition kreiert: "${creation.name}"! 🧃 Stimm für mich ab: ${shareUrl}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  });
+  
+  // Instagram (copy to clipboard since no direct share)
+  document.getElementById('share-instagram')?.addEventListener('click', async () => {
+    const creation = window.currentCreation;
+    if (!creation) return;
+    const shareUrl = `${window.location.origin}${window.location.pathname}?vote=${creation.id}`;
+    const text = `Ich hab meine eigene JuiceBox Limited Edition kreiert: "${creation.name}"! 🧃 Stimm ab: ${shareUrl}`;
+    
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast('📋 Text kopiert! Füge ihn in deine Instagram Story ein.', 'success');
+    } catch (err) {
+      showToast('Öffne Instagram und teile den Link!', 'success');
+    }
+  });
+  
+  // Twitter/X share
+  document.getElementById('share-twitter')?.addEventListener('click', () => {
+    const creation = window.currentCreation;
+    if (!creation) return;
+    const shareUrl = `${window.location.origin}${window.location.pathname}?vote=${creation.id}`;
+    const text = `Ich hab meine eigene JuiceBox Limited Edition kreiert: "${creation.name}"! 🧃 Stimm für mich ab:`;
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`, '_blank');
+  });
+  
+  // Go to leaderboard
+  document.getElementById('go-to-leaderboard')?.addEventListener('click', () => {
+    switchTab('vote');
+    loadCreations();
+  });
 }
 
 // Load creations with a specific creation highlighted at top

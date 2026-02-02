@@ -239,10 +239,74 @@
       </div>
     </section>
 
+    <!-- Success Section (shown after creating) -->
+    <section id="success-section" class="section">
+      <div class="container">
+        <div class="success-page">
+          <!-- Created Drink Display -->
+          <div class="success-creation glass-card">
+            <div class="success-badge">🎉 Geschafft!</div>
+            <div class="success-creation-image" id="success-creation-image">
+              <span class="success-emoji" id="success-emoji">🧃</span>
+            </div>
+            <h2 class="success-creation-name" id="success-creation-name">Deine Kreation</h2>
+            <p class="success-creation-details" id="success-creation-details">-</p>
+            <p class="success-pitch">Deine Sorte steht jetzt zum Voting bereit! Teile sie mit Freunden und sammle Stimmen.</p>
+          </div>
+
+          <!-- Share Options -->
+          <div class="success-share glass-card">
+            <h3>📢 Teile deine Kreation</h3>
+            <div class="share-buttons">
+              <button class="btn btn-share-main" id="success-copy-link">
+                🔗 Link kopieren
+              </button>
+              <div class="social-share-buttons">
+                <button class="btn btn-social btn-whatsapp" id="share-whatsapp">
+                  <span>WhatsApp</span>
+                </button>
+                <button class="btn btn-social btn-instagram" id="share-instagram">
+                  <span>Instagram</span>
+                </button>
+                <button class="btn btn-social btn-twitter" id="share-twitter">
+                  <span>X/Twitter</span>
+                </button>
+              </div>
+            </div>
+            <p class="share-info">Je mehr Votes, desto größer die Chance, dass deine Sorte produziert wird! 🏆</p>
+          </div>
+
+          <!-- Starter Set Pitch -->
+          <div class="success-starter-set glass-card">
+            <div class="starter-set-badge">💡 Tipp</div>
+            <h3>Probier das JuiceBox Starter Set!</h3>
+            <p class="starter-set-pitch" id="starter-set-pitch">
+              Dein Mix enthält <strong id="similar-flavor">Fruchtiges</strong> — genau wie unser Starter Set!
+            </p>
+            <div class="starter-set-features">
+              <div class="feature">✓ 5 Flaschen Konzentrat</div>
+              <div class="feature">✓ Stylische Glasflasche</div>
+              <div class="feature">✓ 50+ Liter Erfrischung</div>
+            </div>
+            <a href="https://juicebox.at/products/starter-set" target="_blank" class="btn btn-starter-set">
+              🧃 Starter Set entdecken
+            </a>
+          </div>
+
+          <!-- Link to Leaderboard -->
+          <div class="success-footer">
+            <button class="btn btn-secondary" id="go-to-leaderboard">
+              🏆 Zur Bestenliste
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Vote Section -->
     <section id="vote-section" class="section">
       <div class="container">
-        <!-- User's Own Creation (shown after creating) -->
+        <!-- Compact My Creation (in vote section) -->
         <div id="my-creation-section" class="my-creation-section hidden">
           <div class="my-creation-card glass-card">
             <div class="my-creation-badge">✨ Deine Kreation</div>
@@ -263,7 +327,6 @@
               <button class="btn btn-share" id="share-creation-btn">
                 <span>🔗 Link kopieren</span>
               </button>
-              <p class="share-hint">Teile den Link mit Freunden, damit sie für dich voten!</p>
             </div>
           </div>
         </div>
