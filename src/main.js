@@ -660,9 +660,16 @@ function showSuccessPage(creation, selectedFlavors, accent) {
   successName.textContent = creation.name;
   successDetails.textContent = details;
   
-  // Set similar flavor for Starter Set pitch
+  // Set similar flavor for Starter Set pitch - make it specific and compelling
   if (selectedFlavors.length > 0) {
-    similarFlavor.textContent = selectedFlavors[0].name;
+    const flavorName = selectedFlavors[0].name;
+    similarFlavor.textContent = flavorName;
+    
+    // Update the full pitch text
+    const pitchEl = document.getElementById('starter-set-pitch');
+    if (pitchEl) {
+      pitchEl.innerHTML = `Die Sorte <strong>${flavorName}</strong> kannst du direkt im Starter Set auswählen — genieß deinen Lieblingsgeschmack schon jetzt zuhause!`;
+    }
   }
   
   // Store creation data for share functions
@@ -735,6 +742,14 @@ function setupSuccessPageListeners() {
     const shareUrl = `${window.location.origin}${window.location.pathname}?vote=${creation.id}`;
     const text = `Ich hab meine eigene JuiceBox Limited Edition kreiert: "${creation.name}"! 🧃 Stimm für mich ab:`;
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`, '_blank');
+  });
+  
+  // Facebook share
+  document.getElementById('share-facebook')?.addEventListener('click', () => {
+    const creation = window.currentCreation;
+    if (!creation) return;
+    const shareUrl = `${window.location.origin}${window.location.pathname}?vote=${creation.id}`;
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, '_blank', 'width=600,height=400');
   });
   
   // Go to leaderboard
