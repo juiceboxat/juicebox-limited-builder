@@ -1414,6 +1414,15 @@ body {
   font-weight: 700;
 }
 
+.starter-set-image {
+  width: 100%;
+  max-width: 280px;
+  height: auto;
+  margin: var(--space-md) auto;
+  display: block;
+  border-radius: var(--radius-md);
+}
+
 .success-starter-set h3 {
   margin-bottom: var(--space-sm);
   color: var(--dark);
