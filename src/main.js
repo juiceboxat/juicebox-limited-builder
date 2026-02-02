@@ -979,6 +979,13 @@ function hideVoteModal() {
   elements.voteModal.classList.add('hidden');
   pendingVoteId = null;
   pendingVoteName = null;
+  
+  // Reset modal state
+  isRemovingVote = false;
+  document.querySelector('#vote-modal h3').textContent = 'Vote abgeben?';
+  document.querySelector('#vote-modal p:first-of-type').textContent = 'Du willst für';
+  document.querySelector('#vote-modal .modal-warning').textContent = '⚠️ Nur ein Vote pro Person möglich!';
+  document.getElementById('vote-confirm').textContent = '✅ Let\'s go!';
 }
 
 // Confirm vote
@@ -1017,6 +1024,7 @@ function showRemoveVoteConfirmation(creationId) {
   
   pendingVoteId = creationId;
   pendingVoteName = creation.name;
+  isRemovingVote = true;
   
   // Reuse vote modal but change text
   elements.voteModalName.textContent = `"${creation.name}"`;
@@ -1024,7 +1032,6 @@ function showRemoveVoteConfirmation(creationId) {
   document.querySelector('#vote-modal p:first-of-type').textContent = 'Willst du deine Stimme für';
   document.querySelector('#vote-modal .modal-warning').textContent = '⚠️ Du kannst danach für eine andere Sorte stimmen.';
   document.getElementById('vote-confirm').textContent = '🗑️ Entfernen';
-  document.getElementById('vote-confirm').onclick = confirmRemoveVote;
   elements.voteModal.classList.remove('hidden');
 }
 
@@ -1035,12 +1042,12 @@ async function confirmRemoveVote() {
   const creationId = pendingVoteId;
   hideVoteModal();
   
-  // Reset modal text for next use
+  // Reset modal text and state for next use
+  isRemovingVote = false;
   document.querySelector('#vote-modal h3').textContent = 'Vote abgeben?';
   document.querySelector('#vote-modal p:first-of-type').textContent = 'Du willst für';
   document.querySelector('#vote-modal .modal-warning').textContent = '⚠️ Nur ein Vote pro Person möglich!';
   document.getElementById('vote-confirm').textContent = '✅ Let\'s go!';
-  document.getElementById('vote-confirm').onclick = confirmVote;
   
   try {
     await removeVote(creationId, state.visitorIp);
@@ -1209,9 +1216,18 @@ function updateVotedBanner() {
   }
 }
 
+// State for vote modal action
+let isRemovingVote = false;
+
 // Setup modal event listeners
 elements.voteCancel.addEventListener('click', hideVoteModal);
-elements.voteConfirm.addEventListener('click', confirmVote);
+elements.voteConfirm.addEventListener('click', () => {
+  if (isRemovingVote) {
+    confirmRemoveVote();
+  } else {
+    confirmVote();
+  }
+});
 
 // Close modal on backdrop click
 elements.voteModal.addEventListener('click', (e) => {
