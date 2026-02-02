@@ -507,9 +507,18 @@ document.getElementById('nav-leaderboard')?.addEventListener('click', (e) => {
   loadCreations();
 });
 
+// Check for shared vote link - skip welcome screen if present
+const urlParams = new URLSearchParams(window.location.search);
+const hasVoteParam = urlParams.has('vote');
+
 // Check if user has seen welcome screen (v2 = reset for new design)
-if (localStorage.getItem('juicebox-welcome-seen-v2')) {
+// OR if they came via a shared vote link
+if (localStorage.getItem('juicebox-welcome-seen-v2') || hasVoteParam) {
   welcomeScreen?.classList.add('hidden');
+  // If vote param, mark as seen so they don't see it later
+  if (hasVoteParam) {
+    localStorage.setItem('juicebox-welcome-seen-v2', 'true');
+  }
 }
 
 welcomeStartBtn?.addEventListener('click', () => {
