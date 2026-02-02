@@ -12,7 +12,7 @@ export const fruits = [
   { id: 'kirsche', name: 'Kirsche', emoji: '🍒' },
   { id: 'banane', name: 'Banane', emoji: '🍌' },
   { id: 'mango', name: 'Mango', emoji: '🥭' },
-  { id: 'maracuja', name: 'Maracuja', emoji: '🥝' },
+  { id: 'maracuja', name: 'Maracuja', emoji: '🟠' },
   { id: 'ananas', name: 'Ananas', emoji: '🍍' },
   { id: 'wassermelone', name: 'Wassermelone', emoji: '🍉' },
   { id: 'melone', name: 'Melone', emoji: '🍈' },

@@ -6,6 +6,41 @@ import { supabase, getCreations, createCreation, updateCreationImage, voteForCre
 // Constants
 const MAX_PRIMARY_FLAVORS = 3;
 
+// Flavor colors for glass visualization
+const flavorColors = {
+  'apfel': { top: 'rgba(180,210,100,0.85)', bottom: 'rgba(140,180,60,1)' },
+  'birne': { top: 'rgba(210,220,140,0.85)', bottom: 'rgba(180,190,100,1)' },
+  'orange': { top: 'rgba(255,180,80,0.85)', bottom: 'rgba(255,140,40,1)' },
+  'zitrone': { top: 'rgba(255,245,150,0.85)', bottom: 'rgba(255,230,100,1)' },
+  'grapefruit': { top: 'rgba(255,180,180,0.85)', bottom: 'rgba(255,130,130,1)' },
+  'erdbeere': { top: 'rgba(255,120,120,0.85)', bottom: 'rgba(220,60,80,1)' },
+  'himbeere': { top: 'rgba(220,80,120,0.85)', bottom: 'rgba(180,40,80,1)' },
+  'blaubeere': { top: 'rgba(120,100,180,0.85)', bottom: 'rgba(80,60,140,1)' },
+  'kirsche': { top: 'rgba(200,60,80,0.85)', bottom: 'rgba(160,30,50,1)' },
+  'banane': { top: 'rgba(255,240,150,0.85)', bottom: 'rgba(255,220,100,1)' },
+  'mango': { top: 'rgba(255,200,80,0.85)', bottom: 'rgba(255,160,40,1)' },
+  'maracuja': { top: 'rgba(255,180,100,0.85)', bottom: 'rgba(255,140,60,1)' },
+  'ananas': { top: 'rgba(255,230,120,0.85)', bottom: 'rgba(255,200,60,1)' },
+  'wassermelone': { top: 'rgba(255,140,150,0.85)', bottom: 'rgba(255,100,120,1)' },
+  'melone': { top: 'rgba(200,240,180,0.85)', bottom: 'rgba(160,220,140,1)' },
+  'traube': { top: 'rgba(140,80,160,0.85)', bottom: 'rgba(100,40,120,1)' },
+  'johannisbeere': { top: 'rgba(180,60,80,0.85)', bottom: 'rgba(140,30,50,1)' },
+  'holunder': { top: 'rgba(180,140,200,0.85)', bottom: 'rgba(140,100,160,1)' },
+  'rhabarber': { top: 'rgba(220,140,160,0.85)', bottom: 'rgba(180,100,120,1)' },
+  'pfirsich': { top: 'rgba(255,200,160,0.85)', bottom: 'rgba(255,160,120,1)' },
+  'kokos': { top: 'rgba(250,250,245,0.85)', bottom: 'rgba(240,235,220,1)' },
+  'minze': { top: 'rgba(160,230,200,0.85)', bottom: 'rgba(100,200,160,1)' },
+  'vanille': { top: 'rgba(255,250,230,0.85)', bottom: 'rgba(255,240,200,1)' },
+  'rose': { top: 'rgba(255,200,210,0.85)', bottom: 'rgba(255,160,180,1)' },
+};
+
+// Accent overrides for liquid color
+const accentColors = {
+  'cola': { top: 'rgba(80,40,20,0.9)', bottom: 'rgba(40,20,10,1)' },
+  'energy': { top: 'rgba(255,240,150,0.9)', bottom: 'rgba(240,210,80,1)' }, // Energy gelblich
+  'eistee': { top: 'rgba(210,140,60,0.9)', bottom: 'rgba(180,100,30,1)' }, // Goldener Eistee
+};
+
 // State
 const state = {
   primaryFlavors: [], // Array of selected flavor IDs (max 3)
@@ -21,14 +56,18 @@ const state = {
 
 // DOM Elements
 const elements = {
-  tabs: document.querySelectorAll('.tab'),
   sections: document.querySelectorAll('.section'),
+  createSection: document.getElementById('create-section'),
+  voteSection: document.getElementById('vote-section'),
   fruitsGrid: document.getElementById('fruits-grid'),
   extrasGrid: document.getElementById('extras-grid'),
   accentsGrid: document.getElementById('accents'),
   variantGroup: document.getElementById('variant'),
   counterFill: document.getElementById('counter-fill'),
-  previewEmoji: document.getElementById('preview-emoji'),
+  liquidTop: document.getElementById('liquid-top'),
+  liquidBottom: document.getElementById('liquid-bottom'),
+  floatingIngredients: document.getElementById('floating-ingredients'),
+  straw: document.getElementById('straw'),
   previewName: document.getElementById('preview-name'),
   previewTags: document.getElementById('preview-tags'),
   primaryCounter: document.getElementById('primary-counter'),
@@ -52,11 +91,24 @@ const elements = {
   marketingCheckbox: document.getElementById('marketing-checkbox'),
   emailCancel: document.getElementById('email-cancel'),
   emailConfirm: document.getElementById('email-confirm'),
+  // My Creation Section
+  myCreationSection: document.getElementById('my-creation-section'),
+  myCreationImage: document.getElementById('my-creation-image'),
+  myCreationEmoji: document.getElementById('my-creation-emoji'),
+  myCreationName: document.getElementById('my-creation-name'),
+  myCreationDetails: document.getElementById('my-creation-details'),
+  myCreationVotes: document.getElementById('my-creation-votes'),
+  myCreationRank: document.getElementById('my-creation-rank'),
+  shareCreationBtn: document.getElementById('share-creation-btn'),
 };
 
 // Pending vote state
 let pendingVoteId = null;
 let pendingVoteName = null;
+
+// Wizard state
+let currentStep = 1;
+const totalSteps = 4;
 
 // Progress animation controller
 let progressInterval = null;
@@ -121,8 +173,12 @@ async function init() {
   renderFlavorGrids();
   renderToggles();
   setupEventListeners();
+  setupShareButton();
   updatePreview();
   updatePrimaryCounter();
+  
+  // Handle shared vote links
+  handleVoteUrlParam();
 }
 
 // Render Flavor Grids
@@ -162,11 +218,6 @@ function renderToggles() {
 
 // Setup Event Listeners
 function setupEventListeners() {
-  // Tab switching
-  elements.tabs.forEach(tab => {
-    tab.addEventListener('click', () => switchTab(tab.dataset.tab));
-  });
-
   // Flavor selection
   document.querySelectorAll('.flavor-btn').forEach(btn => {
     btn.addEventListener('click', () => selectFlavor(btn));
@@ -187,9 +238,8 @@ function setupEventListeners() {
   elements.loadMoreBtn.addEventListener('click', loadMoreCreations);
 }
 
-// Tab Switching
+// Section Switching (no tabs anymore)
 function switchTab(tabId) {
-  elements.tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
   elements.sections.forEach(s => s.classList.toggle('active', s.id === `${tabId}-section`));
   
   if (tabId === 'vote') {
@@ -293,20 +343,74 @@ function updatePreview() {
   
   // Build name
   const flavorNames = selectedFlavors.map(f => f.name);
-  let name = flavorNames.length > 0 ? flavorNames.join(' + ') : 'Wähle Geschmacksrichtungen...';
+  let name = flavorNames.length > 0 ? flavorNames.join(' + ') : 'Wähle deine Zutaten...';
   
   if (accent && accent.id !== 'none') {
     name += ` + ${accent.name}`;
   }
   
-  elements.previewEmoji.textContent = emoji;
   elements.previewName.textContent = name;
   
-  // Update tags
+  // Update tags - only show variant when at step 3 or later
   const tags = [];
-  tags.push(state.variant === 'light' ? '💪 Light' : '🍬 Original');
+  if (currentStep >= 3) {
+    tags.push(state.variant === 'light' ? '💪 Light' : '🍬 Original');
+  }
   
   elements.previewTags.innerHTML = tags.map(t => `<span class="preview-tag">${t}</span>`).join('');
+  
+  // Update glass visualization
+  updateGlassVisualization(selectedFlavors, accent);
+}
+
+// Update glass visualization based on selections
+function updateGlassVisualization(selectedFlavors, accent) {
+  // Determine liquid color
+  let liquidColor = { top: 'rgba(200,200,200,0.5)', bottom: 'rgba(180,180,180,0.6)' }; // Default gray
+  
+  if (accent && accentColors[accent.id]) {
+    // Accent overrides flavor color
+    liquidColor = accentColors[accent.id];
+  } else if (selectedFlavors.length > 0) {
+    // Mix colors from selected flavors
+    const mainFlavor = selectedFlavors[0];
+    if (flavorColors[mainFlavor.id]) {
+      liquidColor = flavorColors[mainFlavor.id];
+      
+      // If multiple flavors, slightly blend
+      if (selectedFlavors.length > 1 && flavorColors[selectedFlavors[1].id]) {
+        // Create a mixed effect by adjusting opacity
+        const color2 = flavorColors[selectedFlavors[1].id];
+        liquidColor = {
+          top: liquidColor.top.replace('0.85', '0.9'),
+          bottom: color2.bottom
+        };
+      }
+    }
+  }
+  
+  // Apply liquid color
+  if (elements.liquidTop && elements.liquidBottom) {
+    elements.liquidTop.setAttribute('stop-color', liquidColor.top);
+    elements.liquidBottom.setAttribute('stop-color', liquidColor.bottom);
+  }
+  
+  // Update floating ingredients
+  if (elements.floatingIngredients) {
+    const ingredients = selectedFlavors.slice(0, 4).map((f, i) => 
+      `<span class="floating-ingredient" style="animation-delay: ${i * 0.5}s">${f.emoji}</span>`
+    ).join('');
+    elements.floatingIngredients.innerHTML = ingredients;
+  }
+  
+  // Show straw for cola/energy
+  if (elements.straw) {
+    if (accent && (accent.id === 'cola' || accent.id === 'energy')) {
+      elements.straw.classList.add('visible');
+    } else {
+      elements.straw.classList.remove('visible');
+    }
+  }
 }
 
 // Validate Form
@@ -349,6 +453,72 @@ elements.emailConfirm.addEventListener('click', () => {
   processCreation();
 });
 
+// Wizard Navigation
+function goToStep(step) {
+  if (step < 1 || step > totalSteps) return;
+  
+  // Validate before moving forward
+  if (step > currentStep && !validateCurrentStep()) return;
+  
+  // Update steps
+  document.querySelectorAll('.wizard-step').forEach((el, i) => {
+    el.classList.toggle('active', i + 1 === step);
+  });
+  
+  // Update progress indicators
+  document.querySelectorAll('.progress-step').forEach((el, i) => {
+    const stepNum = i + 1;
+    el.classList.toggle('active', stepNum === step);
+    el.classList.toggle('completed', stepNum < step);
+  });
+  
+  document.querySelectorAll('.progress-line').forEach((el, i) => {
+    el.classList.toggle('active', i + 1 < step);
+  });
+  
+  currentStep = step;
+}
+
+function validateCurrentStep() {
+  if (currentStep === 1) {
+    // Must have at least one flavor
+    if (state.primaryFlavors.length === 0) {
+      showToast('Wähle mindestens eine Frucht! 🍓', 'error');
+      return false;
+    }
+  }
+  return true;
+}
+
+// Setup wizard navigation buttons
+document.getElementById('next-1')?.addEventListener('click', () => goToStep(2));
+document.getElementById('back-2')?.addEventListener('click', () => goToStep(1));
+document.getElementById('next-2')?.addEventListener('click', () => goToStep(3));
+document.getElementById('back-3')?.addEventListener('click', () => goToStep(2));
+document.getElementById('next-3')?.addEventListener('click', () => goToStep(4));
+document.getElementById('back-4')?.addEventListener('click', () => goToStep(3));
+
+// Welcome Screen
+const welcomeScreen = document.getElementById('welcome-screen');
+const welcomeStartBtn = document.getElementById('welcome-start');
+
+// Navigation - Leaderboard link
+document.getElementById('nav-leaderboard')?.addEventListener('click', (e) => {
+  e.preventDefault();
+  switchTab('vote');
+  loadCreations();
+});
+
+// Check if user has seen welcome screen (v2 = reset for new design)
+if (localStorage.getItem('juicebox-welcome-seen-v2')) {
+  welcomeScreen?.classList.add('hidden');
+}
+
+welcomeStartBtn?.addEventListener('click', () => {
+  localStorage.setItem('juicebox-welcome-seen-v2', 'true');
+  welcomeScreen?.classList.add('hidden');
+});
+
 // Submit button shows email modal first
 function submitCreation() {
   showEmailModal();
@@ -388,6 +558,10 @@ async function processCreation() {
     
     // Store the ID for highlighting
     state.justCreatedId = creation.id;
+    
+    // Store email in localStorage for voting
+    localStorage.setItem('juicebox-creator-email', email);
+    localStorage.setItem('juicebox-own-creation-id', creation.id);
     
     // Show generation overlay with progress bar
     elements.generationEmoji.textContent = emoji;
@@ -517,10 +691,18 @@ function loadMoreCreations() {
 
 // Render Leaderboard
 function renderLeaderboard() {
+  // Always update my creation section first
+  updateMyCreationSection();
+  
   if (state.creations.length === 0) {
     elements.leaderboard.innerHTML = '<div class="empty-state">Noch keine Kreationen. Sei der Erste!</div>';
     return;
   }
+  
+  // Get user's vote and creation from localStorage
+  const ownCreationId = localStorage.getItem('juicebox-own-creation-id');
+  const votedForId = localStorage.getItem('juicebox-voted-for');
+  const highlightSharedId = state.highlightSharedId;
   
   elements.leaderboard.innerHTML = state.creations.map((c, i) => {
     // Parse primary flavors (comma-separated)
@@ -538,21 +720,41 @@ function renderLeaderboard() {
       accent && accent.id !== 'none' ? accent.name : null,
     ].filter(Boolean).join(' + ');
     
-    const voted = state.votedFor.has(c.id);
+    const voted = state.votedFor.has(c.id) || c.id === votedForId;
+    const isOwn = c.id === ownCreationId || c.id === state.justCreatedId;
     const rank = state.offset + i + 1;
     const isTop3 = rank <= 3;
     const isJustCreated = c.id === state.justCreatedId;
+    const isSharedHighlight = c.id === highlightSharedId;
     
     // Badge for user's own creation
-    const yourBadge = isJustCreated ? '<span class="your-creation-badge">✨ Dein Mix!</span>' : '';
+    const yourBadge = isOwn ? '<span class="your-creation-badge">✨ Dein Mix!</span>' : '';
     
     // Variant badge
     const variantBadge = c.variant === 'light' ? '💪 Light' : '🍬 Original';
     
+    // Vote button state
+    let voteButtonClass = '';
+    let voteButtonText = '👍 Vote';
+    let voteButtonDisabled = false;
+    
+    if (isOwn) {
+      voteButtonClass = 'own';
+      voteButtonText = '🙈';
+      voteButtonDisabled = true;
+    } else if (voted) {
+      voteButtonClass = 'voted';
+      voteButtonText = '✓ Gewählt';
+      voteButtonDisabled = true;
+    } else if (votedForId) {
+      // User already voted for something else
+      voteButtonDisabled = true;
+    }
+    
     return `
-      <div class="creation-card ${c.image_url ? 'has-image' : ''} ${isJustCreated ? 'highlighted' : ''}">
+      <div class="creation-card ${c.image_url ? 'has-image' : ''} ${isJustCreated || isSharedHighlight ? 'highlighted' : ''}">
         <div class="creation-image-wrapper">
-          <div class="creation-rank ${isTop3 ? 'top-3' : ''}">${isJustCreated ? '✨' : '#' + rank}</div>
+          <div class="creation-rank ${isTop3 ? 'top-3' : ''}">${isJustCreated || isSharedHighlight ? '✨' : '#' + rank}</div>
           ${c.image_url 
             ? `<img src="${c.image_url}" alt="${c.name}" class="creation-image" loading="lazy">`
             : `<div class="creation-emoji">${emoji}</div>`
@@ -565,8 +767,8 @@ function renderLeaderboard() {
           </div>
           <div class="creation-vote">
             <span class="vote-count">${c.votes_count} 👍</span>
-            <button class="vote-btn ${voted ? 'voted' : ''}" data-id="${c.id}" ${voted ? 'disabled' : ''}>
-              ${voted ? '✓' : '👍 Vote'}
+            <button class="vote-btn ${voteButtonClass}" data-id="${c.id}" ${voteButtonDisabled ? 'disabled' : ''}>
+              ${voteButtonText}
             </button>
           </div>
         </div>
@@ -575,9 +777,24 @@ function renderLeaderboard() {
   }).join('');
   
   // Add vote listeners
-  document.querySelectorAll('.vote-btn:not(.voted)').forEach(btn => {
+  document.querySelectorAll('.vote-btn:not(.voted):not(.own):not([disabled])').forEach(btn => {
     btn.addEventListener('click', () => showVoteConfirmation(btn.dataset.id));
   });
+  
+  // Update voted banner
+  updateVotedBanner();
+  
+  // Clear shared highlight after render (so it doesn't persist on subsequent loads)
+  if (state.highlightSharedId) {
+    // Scroll to the highlighted creation
+    setTimeout(() => {
+      const highlightedCard = document.querySelector('.creation-card.highlighted');
+      if (highlightedCard) {
+        highlightedCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      state.highlightSharedId = null;
+    }, 500);
+  }
 }
 
 // Show vote confirmation modal
@@ -585,10 +802,43 @@ function showVoteConfirmation(creationId) {
   const creation = state.creations.find(c => c.id === creationId);
   if (!creation) return;
   
+  // Check if this is user's own creation
+  const ownCreationId = localStorage.getItem('juicebox-own-creation-id');
+  if (ownCreationId === creationId) {
+    showToast('Du kannst nicht für deine eigene Kreation stimmen! 🙈', 'error');
+    return;
+  }
+  
+  // Check if user already voted
+  const votedForId = localStorage.getItem('juicebox-voted-for');
+  if (votedForId) {
+    const votedCreation = state.creations.find(c => c.id === votedForId);
+    showToast(`Du hast bereits für "${votedCreation?.name || 'eine Sorte'}" gestimmt!`, 'error');
+    return;
+  }
+  
+  // Check if user has email (either created something or provided for voting)
+  const hasEmail = localStorage.getItem('juicebox-creator-email') || localStorage.getItem('juicebox-voter-email');
+  
   pendingVoteId = creationId;
   pendingVoteName = creation.name;
-  elements.voteModalName.textContent = `"${creation.name}"`;
-  elements.voteModal.classList.remove('hidden');
+  
+  if (!hasEmail) {
+    // Show email modal for voting
+    showVoteEmailModal();
+  } else {
+    // Show regular vote confirmation
+    elements.voteModalName.textContent = `"${creation.name}"`;
+    elements.voteModal.classList.remove('hidden');
+  }
+}
+
+// Show email modal for vote-only users
+function showVoteEmailModal() {
+  const voteEmailModal = document.getElementById('vote-email-modal');
+  const voteEmailName = document.getElementById('vote-email-name');
+  if (voteEmailName) voteEmailName.textContent = `"${pendingVoteName}"`;
+  voteEmailModal?.classList.remove('hidden');
 }
 
 // Hide vote modal
@@ -603,21 +853,173 @@ async function confirmVote() {
   if (!pendingVoteId) return;
   
   const creationId = pendingVoteId;
+  const creationName = pendingVoteName;
   hideVoteModal();
   
   try {
     await voteForCreation(creationId, state.visitorIp);
     state.votedFor.add(creationId);
     
+    // Store vote in localStorage
+    localStorage.setItem('juicebox-voted-for', creationId);
+    localStorage.setItem('juicebox-voted-for-name', creationName);
+    
     // Update UI optimistically
     const creation = state.creations.find(c => c.id === creationId);
     if (creation) creation.votes_count++;
     
     renderLeaderboard();
+    updateVotedBanner();
     showToast('👍 Stimme abgegeben!', 'success');
   } catch (error) {
     console.error('Vote error:', error);
     showToast(error.message || '❌ Fehler beim Abstimmen.', 'error');
+  }
+}
+
+// Update "My Creation" section
+function updateMyCreationSection() {
+  const ownCreationId = localStorage.getItem('juicebox-own-creation-id');
+  
+  if (!ownCreationId || !elements.myCreationSection) {
+    elements.myCreationSection?.classList.add('hidden');
+    return;
+  }
+  
+  // Find the creation in loaded data
+  const creation = state.creations.find(c => c.id === ownCreationId);
+  
+  if (!creation) {
+    // Creation not in current list, keep section hidden or show with cached data
+    const cachedData = localStorage.getItem('juicebox-own-creation-data');
+    if (cachedData) {
+      try {
+        const cached = JSON.parse(cachedData);
+        displayMyCreation(cached, -1);
+      } catch (e) {
+        elements.myCreationSection.classList.add('hidden');
+      }
+    } else {
+      elements.myCreationSection.classList.add('hidden');
+    }
+    return;
+  }
+  
+  // Find rank
+  const rank = state.creations.findIndex(c => c.id === ownCreationId) + 1 + state.offset;
+  
+  // Cache the data
+  localStorage.setItem('juicebox-own-creation-data', JSON.stringify(creation));
+  
+  displayMyCreation(creation, rank);
+}
+
+function displayMyCreation(creation, rank) {
+  // Parse flavors
+  const flavorIds = creation.primary_flavor ? creation.primary_flavor.split(',') : [];
+  const selectedFlavors = flavorIds.map(id => primaryFlavors.find(f => f.id === id)).filter(Boolean);
+  const accent = accents.find(a => a.id === creation.accent);
+  
+  // Build emoji
+  let emoji = selectedFlavors.length > 0 
+    ? selectedFlavors.map(f => f.emoji).join('')
+    : '🧃';
+  if (accent && accent.id !== 'none') emoji += accent.emoji;
+  
+  // Build details
+  const details = [
+    ...selectedFlavors.map(f => f.name),
+    accent && accent.id !== 'none' ? accent.name : null,
+    creation.variant === 'light' ? '💪 Light' : '🍬 Original',
+  ].filter(Boolean).join(' • ');
+  
+  // Update DOM
+  elements.myCreationName.textContent = creation.name;
+  elements.myCreationDetails.textContent = details;
+  elements.myCreationVotes.textContent = `${creation.votes_count || 0} 👍`;
+  elements.myCreationRank.textContent = rank > 0 ? `#${rank}` : '—';
+  
+  // Update image
+  if (creation.image_url) {
+    elements.myCreationImage.innerHTML = `<img src="${creation.image_url}" alt="${creation.name}">`;
+  } else {
+    elements.myCreationImage.innerHTML = `<span class="my-creation-emoji">${emoji}</span>`;
+  }
+  
+  // Show section
+  elements.myCreationSection.classList.remove('hidden');
+}
+
+// Share creation link
+function setupShareButton() {
+  elements.shareCreationBtn?.addEventListener('click', async () => {
+    const ownCreationId = localStorage.getItem('juicebox-own-creation-id');
+    if (!ownCreationId) return;
+    
+    const shareUrl = `${window.location.origin}${window.location.pathname}?vote=${ownCreationId}`;
+    
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      elements.shareCreationBtn.classList.add('copied');
+      elements.shareCreationBtn.innerHTML = '<span>✅ Link kopiert!</span>';
+      showToast('🔗 Link kopiert! Teile ihn mit deinen Freunden.', 'success');
+      
+      setTimeout(() => {
+        elements.shareCreationBtn.classList.remove('copied');
+        elements.shareCreationBtn.innerHTML = '<span>🔗 Link kopieren</span>';
+      }, 3000);
+    } catch (err) {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = shareUrl;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      showToast('🔗 Link kopiert!', 'success');
+    }
+  });
+}
+
+// Handle vote URL parameter (when someone opens a shared link)
+function handleVoteUrlParam() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const voteId = urlParams.get('vote');
+  
+  if (voteId) {
+    // Switch to vote tab and highlight the shared creation
+    switchTab('vote');
+    state.highlightSharedId = voteId;
+    
+    // Clean URL
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+}
+
+// Update voted banner
+function updateVotedBanner() {
+  const votedForId = localStorage.getItem('juicebox-voted-for');
+  const votedForName = localStorage.getItem('juicebox-voted-for-name');
+  const hasEmail = localStorage.getItem('juicebox-creator-email') || localStorage.getItem('juicebox-voter-email');
+  const banner = document.getElementById('voted-banner');
+  const ctaBanner = document.getElementById('vote-cta-banner');
+  const voteInfo = document.getElementById('vote-info');
+  const nameEl = document.getElementById('voted-for-name');
+  
+  // Show vote-info only if user has email
+  if (hasEmail) {
+    voteInfo?.classList.remove('hidden');
+  } else {
+    voteInfo?.classList.add('hidden');
+  }
+  
+  if (votedForId && votedForName && banner && nameEl) {
+    nameEl.textContent = `"${votedForName}"`;
+    banner.classList.remove('hidden');
+    ctaBanner?.classList.add('hidden');
+  } else {
+    banner?.classList.add('hidden');
+    ctaBanner?.classList.remove('hidden');
   }
 }
 
@@ -628,6 +1030,75 @@ elements.voteConfirm.addEventListener('click', confirmVote);
 // Close modal on backdrop click
 elements.voteModal.addEventListener('click', (e) => {
   if (e.target === elements.voteModal) hideVoteModal();
+});
+
+// Vote Email Modal handlers
+const voteEmailModal = document.getElementById('vote-email-modal');
+const voteEmailInput = document.getElementById('vote-email-input');
+const voteEmailConfirm = document.getElementById('vote-email-confirm');
+const voteEmailCancel = document.getElementById('vote-email-cancel');
+const voteMarketingCheckbox = document.getElementById('vote-marketing-checkbox');
+
+// Validate email input
+voteEmailInput?.addEventListener('input', () => {
+  const isValid = voteEmailInput.value.includes('@') && voteEmailInput.value.includes('.');
+  voteEmailConfirm.disabled = !isValid;
+});
+
+// Cancel vote email modal
+voteEmailCancel?.addEventListener('click', () => {
+  voteEmailModal?.classList.add('hidden');
+  voteEmailInput.value = '';
+  pendingVoteId = null;
+  pendingVoteName = null;
+});
+
+// Close on backdrop click
+voteEmailModal?.addEventListener('click', (e) => {
+  if (e.target === voteEmailModal) {
+    voteEmailModal.classList.add('hidden');
+    voteEmailInput.value = '';
+    pendingVoteId = null;
+    pendingVoteName = null;
+  }
+});
+
+// Confirm vote with email
+voteEmailConfirm?.addEventListener('click', async () => {
+  const email = voteEmailInput.value.trim();
+  if (!email || !pendingVoteId) return;
+  
+  // Store email for future votes
+  localStorage.setItem('juicebox-voter-email', email);
+  
+  // Hide modal
+  voteEmailModal?.classList.add('hidden');
+  voteEmailInput.value = '';
+  
+  // Now do the actual vote
+  const creationId = pendingVoteId;
+  const creationName = pendingVoteName;
+  
+  try {
+    await voteForCreation(creationId, state.visitorIp);
+    state.votedFor.add(creationId);
+    
+    localStorage.setItem('juicebox-voted-for', creationId);
+    localStorage.setItem('juicebox-voted-for-name', creationName);
+    
+    const creation = state.creations.find(c => c.id === creationId);
+    if (creation) creation.votes_count++;
+    
+    renderLeaderboard();
+    updateVotedBanner();
+    showToast('👍 Stimme abgegeben!', 'success');
+  } catch (error) {
+    console.error('Vote error:', error);
+    showToast(error.message || '❌ Fehler beim Abstimmen.', 'error');
+  }
+  
+  pendingVoteId = null;
+  pendingVoteName = null;
 });
 
 // Toast
