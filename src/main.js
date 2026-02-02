@@ -88,7 +88,6 @@ const elements = {
   voteConfirm: document.getElementById('vote-confirm'),
   emailModal: document.getElementById('email-modal'),
   emailInput: document.getElementById('email-input'),
-  marketingCheckbox: document.getElementById('marketing-checkbox'),
   emailCancel: document.getElementById('email-cancel'),
   emailConfirm: document.getElementById('email-confirm'),
   // My Creation Section
@@ -425,7 +424,6 @@ function validateForm() {
 // Show email modal before submitting
 function showEmailModal() {
   elements.emailInput.value = '';
-  elements.marketingCheckbox.checked = true; // Pre-selected
   elements.emailConfirm.disabled = true;
   elements.emailModal.classList.remove('hidden');
 }
@@ -528,7 +526,7 @@ function submitCreation() {
 async function processCreation() {
   const name = elements.nameInput.value.trim();
   const email = elements.emailInput.value.trim();
-  const marketingConsent = elements.marketingCheckbox.checked;
+  const marketingConsent = true; // Always true - consent given by participating
   
   try {
     elements.submitBtn.disabled = true;
@@ -1037,7 +1035,6 @@ const voteEmailModal = document.getElementById('vote-email-modal');
 const voteEmailInput = document.getElementById('vote-email-input');
 const voteEmailConfirm = document.getElementById('vote-email-confirm');
 const voteEmailCancel = document.getElementById('vote-email-cancel');
-const voteMarketingCheckbox = document.getElementById('vote-marketing-checkbox');
 
 // Validate email input
 voteEmailInput?.addEventListener('input', () => {

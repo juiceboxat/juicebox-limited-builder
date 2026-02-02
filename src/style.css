@@ -1445,6 +1445,14 @@ body {
   margin-bottom: var(--space-lg);
 }
 
+.email-consent-info {
+  font-size: 0.85rem;
+  color: var(--gray);
+  text-align: center;
+  line-height: 1.4;
+  margin-top: var(--space-sm);
+}
+
 .email-form .input-wrapper input {
   width: 100%;
   padding: var(--space-md);
