@@ -19,6 +19,28 @@ export async function getCreations(limit = 20, offset = 0) {
   return data;
 }
 
+export async function getCreationById(id) {
+  const { data, error } = await supabase
+    .from('creations')
+    .select('*')
+    .eq('id', id)
+    .single();
+  
+  if (error && error.code !== 'PGRST116') throw error; // PGRST116 = not found
+  return data;
+}
+
+export async function getCreationByEmail(email) {
+  const { data, error } = await supabase
+    .from('creations')
+    .select('*')
+    .ilike('creator_email', email)
+    .single();
+  
+  if (error && error.code !== 'PGRST116') throw error; // PGRST116 = not found
+  return data;
+}
+
 export async function createCreation(creation) {
   // Check if email already participated
   if (creation.creator_email) {
@@ -75,12 +97,29 @@ export async function updateCreationImage(creationId, imageUrl) {
   return data;
 }
 
-export async function voteForCreation(creationId, voterIp) {
+export async function deleteCreation(creationId, creatorEmail = null) {
+  // Use API endpoint with service key (bypasses RLS)
+  const response = await fetch('/api/delete-creation', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ creationId, creatorEmail }),
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    console.error('Delete error:', error);
+    throw new Error(error.error || 'Failed to delete creation');
+  }
+  
+  return true;
+}
+
+export async function voteForCreation(creationId, voterEmail) {
   // Use RPC function for atomic vote + increment
   const { data, error } = await supabase
     .rpc('submit_vote', { 
       p_creation_id: creationId, 
-      p_voter_ip: voterIp 
+      p_voter_email: voterEmail
     });
   
   if (error) {
@@ -99,12 +138,12 @@ export async function voteForCreation(creationId, voterIp) {
   return data;
 }
 
-export async function removeVote(creationId, voterIp) {
+export async function removeVote(creationId, voterEmail) {
   // Use API endpoint (has service_role key)
   const response = await fetch('/api/remove-vote', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ creationId, voterIp }),
+    body: JSON.stringify({ creationId, voterEmail }),
   });
   
   const data = await response.json();
@@ -117,12 +156,13 @@ export async function removeVote(creationId, voterIp) {
   return data;
 }
 
-// Get all creation IDs this IP has voted for
-export async function getVotedCreationIds(voterIp) {
+// Get all creation IDs this email has voted for
+export async function getVotedCreationIds(voterEmail) {
+  if (!voterEmail) return [];
   const { data, error } = await supabase
     .from('votes')
     .select('creation_id')
-    .eq('voter_ip', voterIp);
+    .eq('voter_email', voterEmail);
   
   if (error) {
     console.error('Error fetching votes:', error);
@@ -131,12 +171,13 @@ export async function getVotedCreationIds(voterIp) {
   return data.map(v => v.creation_id);
 }
 
-export async function hasVoted(creationId, voterIp) {
+export async function hasVoted(creationId, voterEmail) {
+  if (!voterEmail) return false;
   const { data, error } = await supabase
     .from('votes')
     .select('id')
     .eq('creation_id', creationId)
-    .eq('voter_ip', voterIp)
+    .eq('voter_email', voterEmail)
     .single();
   
   return !!data;

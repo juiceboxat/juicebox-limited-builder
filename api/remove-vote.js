@@ -22,10 +22,10 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { creationId, voterIp } = req.body || {};
+    const { creationId, voterEmail } = req.body || {};
     
-    if (!creationId || !voterIp) {
-      return res.status(400).json({ error: 'Missing creationId or voterIp' });
+    if (!creationId || !voterEmail) {
+      return res.status(400).json({ error: 'Missing creationId or voterEmail' });
     }
     
     // Delete the vote
@@ -33,7 +33,7 @@ export default async function handler(req, res) {
       .from('votes')
       .delete()
       .eq('creation_id', creationId)
-      .eq('voter_ip', voterIp);
+      .eq('voter_email', voterEmail);
     
     if (deleteError) {
       console.error('Delete error:', deleteError);

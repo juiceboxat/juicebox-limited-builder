@@ -1,7 +1,7 @@
 // JuiceBox Limited Edition Builder - Main App
 
-import { fruits, extras, primaryFlavors, accents, variants } from './data/flavors.js';
-import { supabase, getCreations, createCreation, updateCreationImage, voteForCreation, removeVote, getVisitorIp, hasVoted, generateCreationImage, getVotedCreationIds } from './lib/supabase.js';
+import { fruits, extras, primaryFlavors, accents, variants, findBestMatch } from './data/flavors.js';
+import { supabase, getCreations, getCreationById, getCreationByEmail, createCreation, updateCreationImage, deleteCreation, voteForCreation, removeVote, getVisitorIp, hasVoted, generateCreationImage, getVotedCreationIds } from './lib/supabase.js';
 
 // Constants
 const MAX_PRIMARY_FLAVORS = 3;
@@ -24,7 +24,6 @@ const flavorColors = {
   'wassermelone': { top: 'rgba(255,140,150,0.85)', bottom: 'rgba(255,100,120,1)' },
   'melone': { top: 'rgba(200,240,180,0.85)', bottom: 'rgba(160,220,140,1)' },
   'traube': { top: 'rgba(140,80,160,0.85)', bottom: 'rgba(100,40,120,1)' },
-  'johannisbeere': { top: 'rgba(180,60,80,0.85)', bottom: 'rgba(140,30,50,1)' },
   'holunder': { top: 'rgba(180,140,200,0.85)', bottom: 'rgba(140,100,160,1)' },
   'rhabarber': { top: 'rgba(220,140,160,0.85)', bottom: 'rgba(180,100,120,1)' },
   'pfirsich': { top: 'rgba(255,200,160,0.85)', bottom: 'rgba(255,160,120,1)' },
@@ -164,21 +163,43 @@ function stopProgress() {
 async function init() {
   state.visitorIp = await getVisitorIp();
   
-  // Load existing votes for this IP
-  const votedIds = await getVotedCreationIds(state.visitorIp);
-  votedIds.forEach(id => state.votedFor.add(id));
-  console.log('Loaded existing votes:', votedIds.length);
+  // Load existing votes for this email (if known)
+  const userEmail = localStorage.getItem('juicebox-creator-email') || localStorage.getItem('juicebox-voter-email');
+  if (userEmail) {
+    const votedIds = await getVotedCreationIds(userEmail);
+    votedIds.forEach(id => state.votedFor.add(id));
+    console.log('Loaded existing votes for email:', votedIds.length);
+    
+    // Sync DB votes to localStorage (fixes cross-browser/cleared-cache issue)
+    if (votedIds.length > 0 && !localStorage.getItem('juicebox-voted-for')) {
+      localStorage.setItem('juicebox-voted-for', votedIds[0]);
+      console.log('Synced vote from DB to localStorage:', votedIds[0]);
+    }
+  }
   
   renderFlavorGrids();
   renderToggles();
   setupEventListeners();
   setupShareButton();
   setupSuccessPageListeners();
+  setupUserInfo();
+  setupAlreadyCreatedSection();
   updatePreview();
   updatePrimaryCounter();
   
+  // Handle URL hash routing (e.g., #bestenliste)
+  const hashHandled = handleHashRoute();
+  
   // Handle shared vote links
-  handleVoteUrlParam();
+  if (!hashHandled) {
+    handleVoteUrlParam();
+  }
+  
+  // Check if user already has a creation (show on create page)
+  checkAlreadyCreated();
+  
+  // Listen for hash changes
+  window.addEventListener('hashchange', () => handleHashRoute());
 }
 
 // Render Flavor Grids
@@ -239,12 +260,54 @@ function setupEventListeners() {
 }
 
 // Section Switching (no tabs anymore)
-function switchTab(tabId) {
+function switchTab(tabId, updateUrl = true) {
   elements.sections.forEach(s => s.classList.toggle('active', s.id === `${tabId}-section`));
   
-  if (tabId === 'vote') {
-    loadCreations();
+  // Update URL for shareability
+  if (updateUrl) {
+    const newPath = tabId === 'vote' ? '/bestenliste' : '/';
+    if (window.location.pathname !== newPath) {
+      history.pushState(null, '', newPath);
+    }
   }
+  
+  // Update navigation links visibility
+  const navCreator = document.getElementById('nav-creator');
+  const navLeaderboard = document.getElementById('nav-leaderboard');
+  
+  if (tabId === 'vote') {
+    // On leaderboard: show Creator link, hide Leaderboard link
+    navCreator?.classList.remove('hidden');
+    navLeaderboard?.classList.add('hidden');
+    loadCreations();
+  } else {
+    // On creator/success: show Leaderboard link, hide Creator link
+    navCreator?.classList.add('hidden');
+    navLeaderboard?.classList.remove('hidden');
+  }
+}
+
+// Handle URL routing for direct links (path or hash)
+function handleHashRoute() {
+  const path = window.location.pathname.toLowerCase();
+  const hash = window.location.hash.toLowerCase();
+  
+  // Check path first, then hash
+  if (path === '/bestenliste' || path === '/leaderboard' || 
+      hash === '#bestenliste' || hash === '#leaderboard' || hash === '#vote') {
+    // Skip welcome screen and go directly to leaderboard
+    document.getElementById('welcome-screen')?.classList.add('hidden');
+    switchTab('vote', false);
+    return true;
+  }
+  
+  // Default: on creator page, ensure nav is correct
+  const navCreator = document.getElementById('nav-creator');
+  const navLeaderboard = document.getElementById('nav-leaderboard');
+  navCreator?.classList.add('hidden');
+  navLeaderboard?.classList.remove('hidden');
+  
+  return false;
 }
 
 // Select Primary Flavor (multi-select up to 3)
@@ -508,6 +571,12 @@ document.getElementById('nav-leaderboard')?.addEventListener('click', (e) => {
   loadCreations();
 });
 
+// Navigation - Creator link
+document.getElementById('nav-creator')?.addEventListener('click', (e) => {
+  e.preventDefault();
+  switchTab('create');
+});
+
 // Check for shared vote link - skip welcome screen if present
 const urlParams = new URLSearchParams(window.location.search);
 const hasVoteParam = urlParams.has('vote');
@@ -527,16 +596,47 @@ welcomeStartBtn?.addEventListener('click', () => {
   welcomeScreen?.classList.add('hidden');
 });
 
-// Submit button shows email modal first
+// Submit button shows email modal first (or skips if email already known)
 function submitCreation() {
-  showEmailModal();
+  const existingEmail = localStorage.getItem('juicebox-creator-email') || localStorage.getItem('juicebox-voter-email');
+  
+  if (existingEmail) {
+    // User already has an email stored - skip modal and use it directly
+    elements.emailInput.value = existingEmail;
+    processCreation();
+  } else {
+    // Show email modal for new users
+    showEmailModal();
+  }
 }
+
+// Flag to prevent double submission
+let isSubmitting = false;
 
 // Actual creation process (after email is provided)
 async function processCreation() {
+  // Prevent double submission
+  if (isSubmitting) return;
+  isSubmitting = true;
+  
   const name = elements.nameInput.value.trim();
   const email = elements.emailInput.value.trim();
   const marketingConsent = true; // Always true - consent given by participating
+  
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    showToast('Bitte gib eine gültige E-Mail-Adresse ein!', 'error');
+    isSubmitting = false;
+    return;
+  }
+  
+  // Validate name
+  if (name.length < 3 || name.length > 30) {
+    showToast('Der Name muss zwischen 3 und 30 Zeichen lang sein!', 'error');
+    isSubmitting = false;
+    return;
+  }
   
   try {
     elements.submitBtn.disabled = true;
@@ -570,6 +670,10 @@ async function processCreation() {
     // Store email in localStorage for voting
     localStorage.setItem('juicebox-creator-email', email);
     localStorage.setItem('juicebox-own-creation-id', creation.id);
+    localStorage.setItem('juicebox-own-creation-name', name);
+    
+    // Update user display
+    if (window.updateUserDisplay) window.updateUserDisplay();
     
     // Show generation overlay with progress bar
     elements.generationEmoji.textContent = emoji;
@@ -612,8 +716,29 @@ async function processCreation() {
     stopProgress();
     elements.generationOverlay.classList.add('hidden');
     
-    // If email already exists, redirect to leaderboard
+    // If email already exists, recover and show the existing creation
     if (error.code === 'EMAIL_EXISTS') {
+      try {
+        // Fetch the existing creation by email
+        const email = localStorage.getItem('juicebox-creator-email') || localStorage.getItem('juicebox-voter-email');
+        if (email) {
+          const existingCreation = await getCreationByEmail(email);
+          if (existingCreation) {
+            // Store in localStorage so checkAlreadyCreated works
+            localStorage.setItem('juicebox-own-creation-id', existingCreation.id);
+            localStorage.setItem('juicebox-own-creation-name', existingCreation.name);
+            localStorage.setItem('juicebox-own-creation-data', JSON.stringify(existingCreation));
+            
+            // Show the already-created section
+            showToast(`Du hast bereits eine Kreation: "${existingCreation.name}"`, 'info');
+            await checkAlreadyCreated();
+            return;
+          }
+        }
+      } catch (fetchError) {
+        console.error('Failed to fetch existing creation:', fetchError);
+      }
+      // Fallback if fetch fails
       showToast(`Du hast bereits teilgenommen! Deine Kreation: "${error.existingCreation}"`, 'error');
       switchTab('vote');
       loadCreations();
@@ -621,6 +746,7 @@ async function processCreation() {
       showToast(error.message || '❌ Fehler beim Einreichen. Versuch es nochmal.', 'error');
     }
   } finally {
+    isSubmitting = false;
     elements.submitBtn.disabled = false;
     elements.submitBtn.innerHTML = '<span class="btn-text">🚀 Ab in die Challenge!</span><span class="btn-shine"></span>';
   }
@@ -660,15 +786,19 @@ function showSuccessPage(creation, selectedFlavors, accent) {
   successName.textContent = creation.name;
   successDetails.textContent = details;
   
-  // Set similar flavor for Starter Set pitch - make it specific and compelling
+  // Set similar flavor for Starter Set pitch - find best matching standard flavor
   if (selectedFlavors.length > 0) {
-    const flavorName = selectedFlavors[0].name;
-    similarFlavor.textContent = flavorName;
+    const flavorIds = selectedFlavors.map(f => f.id);
+    const accentId = accent?.id || 'none';
     
-    // Update the full pitch text
+    // Find the best matching standard JuiceBox flavor
+    const matchedFlavorName = findBestMatch(flavorIds, accentId);
+    similarFlavor.textContent = matchedFlavorName;
+    
+    // Update the full pitch text with the actual product name
     const pitchEl = document.getElementById('starter-set-pitch');
     if (pitchEl) {
-      pitchEl.innerHTML = `Die Sorte <strong>${flavorName}</strong> kannst du direkt im Starter Set auswählen — genieß deinen Lieblingsgeschmack schon jetzt zuhause!`;
+      pitchEl.innerHTML = `Die Sorte <strong>${matchedFlavorName}</strong> ist sehr ähnlich wie deine Kreation, du kannst sie direkt im Starter Set bestellen — genieß deinen Lieblingsgeschmack schon jetzt zuhause!`;
     }
   }
   
@@ -679,17 +809,239 @@ function showSuccessPage(creation, selectedFlavors, accent) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+// Setup user info display and logout
+function setupUserInfo() {
+  const userInfoEl = document.getElementById('user-info');
+  const userEmailEl = document.getElementById('user-email');
+  const logoutBtn = document.getElementById('logout-btn');
+  
+  // Update user info display
+  function updateUserDisplay() {
+    const email = localStorage.getItem('juicebox-creator-email') || localStorage.getItem('juicebox-voter-email');
+    
+    if (email && userInfoEl && userEmailEl) {
+      userEmailEl.textContent = email;
+      userInfoEl.classList.remove('hidden');
+    } else if (userInfoEl) {
+      userInfoEl.classList.add('hidden');
+    }
+  }
+  
+  // Initial update
+  updateUserDisplay();
+  
+  // Logout handler
+  logoutBtn?.addEventListener('click', () => {
+    if (confirm('Möchtest du dich wirklich ausloggen? Deine Kreation bleibt erhalten, aber du musst dich erneut anmelden um zu voten.')) {
+      // Clear email from localStorage
+      localStorage.removeItem('juicebox-creator-email');
+      localStorage.removeItem('juicebox-voter-email');
+      localStorage.removeItem('juicebox-voted-for');
+      localStorage.removeItem('juicebox-voted-for-name');
+      
+      // Clear vote state
+      state.votedFor.clear();
+      
+      // Update display
+      updateUserDisplay();
+      
+      // Reload to refresh state
+      location.reload();
+    }
+  });
+  
+  // Expose update function globally for use after login
+  window.updateUserDisplay = updateUserDisplay;
+}
+
+// Setup Already Created Section
+function setupAlreadyCreatedSection() {
+  const leaderboardBtn = document.getElementById('already-created-leaderboard');
+  const deleteBtn = document.getElementById('already-created-delete');
+  
+  leaderboardBtn?.addEventListener('click', () => {
+    switchTab('vote');
+  });
+  
+  deleteBtn?.addEventListener('click', async () => {
+    const ownCreationId = localStorage.getItem('juicebox-own-creation-id');
+    const ownCreationName = localStorage.getItem('juicebox-own-creation-name');
+    if (!ownCreationId) return;
+    
+    if (!confirm(`Bist du sicher, dass du "${ownCreationName}" löschen möchtest? Alle Votes gehen verloren!`)) {
+      return;
+    }
+    
+    try {
+      deleteBtn.disabled = true;
+      deleteBtn.textContent = '⏳ Wird gelöscht...';
+      
+      await deleteCreation(ownCreationId);
+      
+      // Clear localStorage
+      localStorage.removeItem('juicebox-own-creation-id');
+      localStorage.removeItem('juicebox-own-creation-name');
+      localStorage.removeItem('juicebox-own-creation-data');
+      localStorage.removeItem('juicebox-voted-for');
+      localStorage.removeItem('juicebox-voted-for-name');
+      
+      // Hide already created section
+      document.getElementById('already-created-section')?.classList.add('hidden');
+      
+      // Reset state
+      state.justCreatedId = null;
+      state.votedFor.clear();
+      
+      showToast('✅ Kreation gelöscht! Du kannst jetzt eine neue erstellen.', 'success');
+      
+      // Reset wizard
+      resetWizard();
+      
+    } catch (error) {
+      console.error('Delete error:', error);
+      showToast('❌ Fehler beim Löschen. Bitte versuche es erneut.', 'error');
+      deleteBtn.disabled = false;
+      deleteBtn.textContent = '🗑️ Löschen & Neu erstellen';
+    }
+  });
+}
+
+// Check if user already has a creation
+async function checkAlreadyCreated() {
+  const ownCreationId = localStorage.getItem('juicebox-own-creation-id');
+  if (!ownCreationId) return;
+  
+  const section = document.getElementById('already-created-section');
+  if (!section) return;
+  
+  // Try to load creation data
+  let creation = null;
+  const cachedData = localStorage.getItem('juicebox-own-creation-data');
+  
+  if (cachedData) {
+    try {
+      creation = JSON.parse(cachedData);
+    } catch (e) {
+      console.error('Failed to parse cached creation data');
+    }
+  }
+  
+  // If no cached data, fetch directly by ID
+  if (!creation) {
+    try {
+      creation = await getCreationById(ownCreationId);
+      if (creation) {
+        localStorage.setItem('juicebox-own-creation-data', JSON.stringify(creation));
+      }
+    } catch (e) {
+      console.error('Failed to fetch creation data');
+    }
+  }
+  
+  if (!creation) {
+    // Creation might have been deleted - clear localStorage
+    localStorage.removeItem('juicebox-own-creation-id');
+    localStorage.removeItem('juicebox-own-creation-name');
+    localStorage.removeItem('juicebox-own-creation-data');
+    return;
+  }
+  
+  // Populate the already-created section
+  const flavorIds = creation.primary_flavor ? creation.primary_flavor.split(',') : [];
+  const selectedFlavors = flavorIds.map(id => primaryFlavors.find(f => f.id === id)).filter(Boolean);
+  const accent = accents.find(a => a.id === creation.accent);
+  
+  let emoji = selectedFlavors.length > 0 
+    ? selectedFlavors.map(f => f.emoji).join('')
+    : '🧃';
+  if (accent && accent.id !== 'none') emoji += accent.emoji;
+  
+  const details = [
+    ...selectedFlavors.map(f => f.name),
+    accent && accent.id !== 'none' ? accent.name : null,
+    creation.variant === 'light' ? '💪 Light' : '🍬 Original',
+  ].filter(Boolean).join(' • ');
+  
+  // Update DOM
+  const imageEl = document.getElementById('already-created-image');
+  const nameEl = document.getElementById('already-created-name');
+  const detailsEl = document.getElementById('already-created-details');
+  const votesEl = document.getElementById('already-created-votes');
+  const rankEl = document.getElementById('already-created-rank');
+  
+  if (creation.image_url && imageEl) {
+    imageEl.innerHTML = `<img src="${creation.image_url}" alt="${creation.name}">`;
+  } else if (imageEl) {
+    imageEl.innerHTML = `<span class="already-created-emoji">${emoji}</span>`;
+  }
+  
+  if (nameEl) nameEl.textContent = creation.name;
+  if (detailsEl) detailsEl.textContent = details;
+  if (votesEl) votesEl.textContent = `${creation.votes_count || 0} 👍`;
+  
+  // Calculate rank (approximate)
+  try {
+    const creations = await getCreations(100, 0);
+    const rank = creations.findIndex(c => c.id === ownCreationId) + 1;
+    if (rankEl) rankEl.textContent = rank > 0 ? `#${rank}` : '—';
+  } catch (e) {
+    if (rankEl) rankEl.textContent = '—';
+  }
+  
+  // Show the section
+  section.classList.remove('hidden');
+}
+
+// Native share helper function
+async function nativeShare(title, text, url) {
+  if (navigator.share) {
+    try {
+      await navigator.share({ title, text, url });
+      return true;
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        console.error('Share failed:', err);
+      }
+      return false;
+    }
+  }
+  return false;
+}
+
+// Copy to clipboard helper
+async function copyToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (err) {
+    // Fallback
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textArea);
+    return true;
+  }
+}
+
 // Setup success page event listeners
 function setupSuccessPageListeners() {
-  // Copy link button
+  // Copy/Share link button - uses native share on mobile
   document.getElementById('success-copy-link')?.addEventListener('click', async () => {
     const creation = window.currentCreation;
     if (!creation) return;
     
     const shareUrl = `${window.location.origin}${window.location.pathname}?vote=${creation.id}`;
+    const shareTitle = `JuiceBox Limited: ${creation.name}`;
+    const shareText = `Ich hab meine eigene JuiceBox Limited Edition kreiert: "${creation.name}"! 🧃 Stimm für mich ab!`;
     
-    try {
-      await navigator.clipboard.writeText(shareUrl);
+    // Try native share first (mobile)
+    const shared = await nativeShare(shareTitle, shareText, shareUrl);
+    
+    if (!shared) {
+      // Fallback to clipboard copy
+      await copyToClipboard(shareUrl);
       const btn = document.getElementById('success-copy-link');
       btn.classList.add('copied');
       btn.textContent = '✅ Link kopiert!';
@@ -699,15 +1051,6 @@ function setupSuccessPageListeners() {
         btn.classList.remove('copied');
         btn.textContent = '🔗 Link kopieren';
       }, 3000);
-    } catch (err) {
-      // Fallback
-      const textArea = document.createElement('textarea');
-      textArea.value = shareUrl;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-      showToast('🔗 Link kopiert!', 'success');
     }
   });
   
@@ -757,6 +1100,114 @@ function setupSuccessPageListeners() {
     switchTab('vote');
     loadCreations();
   });
+  
+  // Delete creation button
+  document.getElementById('delete-creation-btn')?.addEventListener('click', () => {
+    const ownCreationId = localStorage.getItem('juicebox-own-creation-id');
+    const ownCreationName = localStorage.getItem('juicebox-own-creation-name');
+    if (!ownCreationId) return;
+    
+    document.getElementById('delete-creation-name').textContent = `"${ownCreationName || 'Deine Kreation'}"`;
+    document.getElementById('delete-confirm-check').checked = false;
+    document.getElementById('delete-confirm').disabled = true;
+    document.getElementById('delete-creation-modal').classList.remove('hidden');
+  });
+  
+  // Delete modal checkbox
+  document.getElementById('delete-confirm-check')?.addEventListener('change', (e) => {
+    document.getElementById('delete-confirm').disabled = !e.target.checked;
+  });
+  
+  // Delete modal cancel
+  document.getElementById('delete-cancel')?.addEventListener('click', () => {
+    document.getElementById('delete-creation-modal').classList.add('hidden');
+  });
+  
+  // Delete modal confirm
+  document.getElementById('delete-confirm')?.addEventListener('click', async () => {
+    const ownCreationId = localStorage.getItem('juicebox-own-creation-id');
+    if (!ownCreationId) return;
+    
+    const confirmBtn = document.getElementById('delete-confirm');
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = '⏳ Wird gelöscht...';
+    
+    try {
+      await deleteCreation(ownCreationId);
+      
+      // Clear localStorage (all creation-related data)
+      localStorage.removeItem('juicebox-own-creation-id');
+      localStorage.removeItem('juicebox-own-creation-name');
+      localStorage.removeItem('juicebox-own-creation-data');
+      localStorage.removeItem('juicebox-voted-for');
+      localStorage.removeItem('juicebox-voted-for-name');
+      
+      // Hide modal
+      document.getElementById('delete-creation-modal').classList.add('hidden');
+      
+      // Hide my-creation section in leaderboard
+      document.getElementById('my-creation-section')?.classList.add('hidden');
+      
+      // Hide already-created section in builder
+      document.getElementById('already-created-section')?.classList.add('hidden');
+      
+      // Reset state
+      state.justCreatedId = null;
+      state.votedFor.clear();
+      
+      showToast('✅ Kreation gelöscht! Du kannst jetzt eine neue erstellen.', 'success');
+      
+      // Go to create section
+      switchTab('create');
+      
+      // Reset wizard
+      resetWizard();
+      
+    } catch (error) {
+      console.error('Delete error:', error);
+      showToast('❌ Fehler beim Löschen. Bitte versuche es erneut.', 'error');
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = '🗑️ Endgültig löschen';
+    }
+  });
+}
+
+// Reset wizard to start state
+function resetWizard() {
+  // Clear selections
+  state.primaryFlavors = [];
+  state.accent = 'none';
+  state.variant = 'original';
+  
+  // Reset UI
+  document.querySelectorAll('.flavor-btn').forEach(btn => btn.classList.remove('selected'));
+  document.querySelectorAll('.accent-btn').forEach(btn => {
+    btn.classList.remove('selected');
+    if (btn.dataset.id === 'none') btn.classList.add('selected');
+  });
+  document.querySelectorAll('.variant-btn').forEach(btn => {
+    btn.classList.remove('selected');
+    if (btn.dataset.id === 'original') btn.classList.add('selected');
+  });
+  
+  // Reset name input
+  elements.nameInput.value = '';
+  elements.submitBtn.disabled = true;
+  
+  // Reset to step 1
+  document.querySelectorAll('.wizard-step').forEach((step, i) => {
+    step.classList.toggle('active', i === 0);
+  });
+  document.querySelectorAll('.progress-step').forEach((step, i) => {
+    step.classList.toggle('active', i === 0);
+  });
+  
+  // Update preview
+  updatePreview();
+  updatePrimaryCounter();
+  
+  // Hide welcome screen
+  document.getElementById('welcome-screen').classList.add('hidden');
 }
 
 // Load creations with a specific creation highlighted at top
@@ -813,11 +1264,41 @@ async function loadCreations(append = false) {
     state.creations = append ? [...state.creations, ...creations] : creations;
     
     renderLeaderboard();
+    updateChallengeStats();
     
     elements.loadMoreBtn.style.display = creations.length === state.limit ? 'block' : 'none';
   } catch (error) {
     console.error('Load error:', error);
     elements.leaderboard.innerHTML = '<div class="empty-state">Fehler beim Laden. Versuch es nochmal.</div>';
+  }
+}
+
+// Update challenge stats banner
+function updateChallengeStats() {
+  // Calculate days until challenge ends (example: Feb 28, 2026)
+  const challengeEndDate = new Date('2026-02-28T23:59:59');
+  const now = new Date();
+  const daysRemaining = Math.max(0, Math.ceil((challengeEndDate - now) / (1000 * 60 * 60 * 24)));
+  
+  const countdownEl = document.getElementById('countdown-days');
+  const totalCreationsEl = document.getElementById('total-creations');
+  const totalVotesEl = document.getElementById('total-votes');
+  
+  if (countdownEl) {
+    countdownEl.textContent = daysRemaining;
+    // Change color if urgent
+    if (daysRemaining <= 3) {
+      countdownEl.parentElement.parentElement.style.background = '#ff5722';
+    }
+  }
+  
+  if (totalCreationsEl) {
+    totalCreationsEl.textContent = state.creations.length;
+  }
+  
+  if (totalVotesEl) {
+    const totalVotes = state.creations.reduce((sum, c) => sum + (c.votes_count || 0), 0);
+    totalVotesEl.textContent = totalVotes;
   }
 }
 
@@ -1003,16 +1484,22 @@ function hideVoteModal() {
   document.getElementById('vote-confirm').textContent = '✅ Let\'s go!';
 }
 
+// Flag to prevent double voting from modal
+let isConfirmingVote = false;
+
 // Confirm vote
 async function confirmVote() {
-  if (!pendingVoteId) return;
+  if (!pendingVoteId || isConfirmingVote) return;
+  isConfirmingVote = true;
   
   const creationId = pendingVoteId;
   const creationName = pendingVoteName;
   hideVoteModal();
   
   try {
-    await voteForCreation(creationId, state.visitorIp);
+    // Get email from localStorage (creator or voter email)
+    const voterEmail = localStorage.getItem('juicebox-creator-email') || localStorage.getItem('juicebox-voter-email');
+    await voteForCreation(creationId, voterEmail);
     state.votedFor.add(creationId);
     
     // Store vote in localStorage
@@ -1029,6 +1516,8 @@ async function confirmVote() {
   } catch (error) {
     console.error('Vote error:', error);
     showToast(error.message || '❌ Fehler beim Abstimmen.', 'error');
+  } finally {
+    isConfirmingVote = false;
   }
 }
 
@@ -1065,7 +1554,8 @@ async function confirmRemoveVote() {
   document.getElementById('vote-confirm').textContent = '✅ Let\'s go!';
   
   try {
-    await removeVote(creationId, state.visitorIp);
+    const voterEmail = localStorage.getItem('juicebox-creator-email') || localStorage.getItem('juicebox-voter-email');
+    await removeVote(creationId, voterEmail);
     state.votedFor.delete(creationId);
     
     // Clear localStorage
@@ -1162,29 +1652,38 @@ function displayMyCreation(creation, rank) {
 function setupShareButton() {
   elements.shareCreationBtn?.addEventListener('click', async () => {
     const ownCreationId = localStorage.getItem('juicebox-own-creation-id');
+    const ownCreationName = localStorage.getItem('juicebox-own-creation-name');
     if (!ownCreationId) return;
     
     const shareUrl = `${window.location.origin}${window.location.pathname}?vote=${ownCreationId}`;
+    const shareTitle = `JuiceBox Limited: ${ownCreationName || 'Meine Kreation'}`;
+    const shareText = `Ich hab meine eigene JuiceBox Limited Edition kreiert: "${ownCreationName}"! 🧃 Stimm für mich ab!`;
     
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      elements.shareCreationBtn.classList.add('copied');
-      elements.shareCreationBtn.innerHTML = '<span>✅ Link kopiert!</span>';
-      showToast('🔗 Link kopiert! Teile ihn mit deinen Freunden.', 'success');
-      
-      setTimeout(() => {
-        elements.shareCreationBtn.classList.remove('copied');
-        elements.shareCreationBtn.innerHTML = '<span>🔗 Link kopieren</span>';
-      }, 3000);
-    } catch (err) {
-      // Fallback for older browsers
-      const textArea = document.createElement('textarea');
-      textArea.value = shareUrl;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-      showToast('🔗 Link kopiert!', 'success');
+    // Try native share first (mobile)
+    const shared = await nativeShare(shareTitle, shareText, shareUrl);
+    
+    if (!shared) {
+      // Fallback to clipboard copy
+      try {
+        await copyToClipboard(shareUrl);
+        elements.shareCreationBtn.classList.add('copied');
+        elements.shareCreationBtn.innerHTML = '<span>✅ Link kopiert!</span>';
+        showToast('🔗 Link kopiert! Teile ihn mit deinen Freunden.', 'success');
+        
+        setTimeout(() => {
+          elements.shareCreationBtn.classList.remove('copied');
+          elements.shareCreationBtn.innerHTML = '<span>🔗 Link kopieren</span>';
+        }, 3000);
+      } catch (err) {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = shareUrl;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        showToast('🔗 Link kopiert!', 'success');
+      }
     }
   });
 }
@@ -1221,10 +1720,17 @@ function updateVotedBanner() {
     voteInfo?.classList.add('hidden');
   }
   
-  if (votedForId && votedForName && banner && nameEl) {
-    nameEl.textContent = `"${votedForName}"`;
-    banner.classList.remove('hidden');
+  // Hide CTA banner if user has already voted (regardless of name being stored)
+  if (votedForId) {
     ctaBanner?.classList.add('hidden');
+    
+    // Show voted banner if we have the name
+    if (votedForName && banner && nameEl) {
+      nameEl.textContent = `"${votedForName}"`;
+      banner.classList.remove('hidden');
+    } else {
+      banner?.classList.add('hidden');
+    }
   } else {
     banner?.classList.add('hidden');
     ctaBanner?.classList.remove('hidden');
@@ -1255,9 +1761,10 @@ const voteEmailInput = document.getElementById('vote-email-input');
 const voteEmailConfirm = document.getElementById('vote-email-confirm');
 const voteEmailCancel = document.getElementById('vote-email-cancel');
 
-// Validate email input
+// Validate email input (same regex as creation email)
 voteEmailInput?.addEventListener('input', () => {
-  const isValid = voteEmailInput.value.includes('@') && voteEmailInput.value.includes('.');
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const isValid = emailRegex.test(voteEmailInput.value.trim());
   voteEmailConfirm.disabled = !isValid;
 });
 
@@ -1280,12 +1787,31 @@ voteEmailModal?.addEventListener('click', (e) => {
 });
 
 // Confirm vote with email
+// Flag to prevent double voting
+let isVoting = false;
+
 voteEmailConfirm?.addEventListener('click', async () => {
+  if (isVoting) return;
+  
   const email = voteEmailInput.value.trim();
   if (!email || !pendingVoteId) return;
   
+  // Validate email
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    showToast('Bitte gib eine gültige E-Mail-Adresse ein!', 'error');
+    return;
+  }
+  
+  isVoting = true;
+  voteEmailConfirm.disabled = true;
+  voteEmailConfirm.textContent = '⏳ Wird abgestimmt...';
+  
   // Store email for future votes
   localStorage.setItem('juicebox-voter-email', email);
+  
+  // Update user display
+  if (window.updateUserDisplay) window.updateUserDisplay();
   
   // Hide modal
   voteEmailModal?.classList.add('hidden');
@@ -1296,7 +1822,7 @@ voteEmailConfirm?.addEventListener('click', async () => {
   const creationName = pendingVoteName;
   
   try {
-    await voteForCreation(creationId, state.visitorIp);
+    await voteForCreation(creationId, email);
     state.votedFor.add(creationId);
     
     localStorage.setItem('juicebox-voted-for', creationId);
@@ -1311,6 +1837,10 @@ voteEmailConfirm?.addEventListener('click', async () => {
   } catch (error) {
     console.error('Vote error:', error);
     showToast(error.message || '❌ Fehler beim Abstimmen.', 'error');
+  } finally {
+    isVoting = false;
+    voteEmailConfirm.disabled = false;
+    voteEmailConfirm.textContent = '✅ Vote abgeben!';
   }
   
   pendingVoteId = null;
@@ -1334,6 +1864,8 @@ const leaderboard = document.getElementById('leaderboard');
 // Load saved view preference
 const savedView = localStorage.getItem('juicebox-view') || 'grid-2';
 leaderboard?.classList.add(`view-${savedView}`);
+// Remove all active classes first, then set the correct one
+viewButtons.forEach(b => b.classList.remove('active'));
 document.querySelector(`.view-btn[data-view="${savedView}"]`)?.classList.add('active');
 
 viewButtons.forEach(btn => {
@@ -1352,6 +1884,95 @@ viewButtons.forEach(btn => {
     localStorage.setItem('juicebox-view', view);
   });
 });
+
+// Mobile Sidebar
+const hamburgerBtn = document.getElementById('hamburger-btn');
+const sidebar = document.getElementById('sidebar');
+const sidebarOverlay = document.getElementById('sidebar-overlay');
+const sidebarClose = document.getElementById('sidebar-close');
+const sidebarCreator = document.getElementById('sidebar-creator');
+const sidebarLeaderboard = document.getElementById('sidebar-leaderboard');
+const sidebarUserInfo = document.getElementById('sidebar-user-info');
+const sidebarUserEmail = document.getElementById('sidebar-user-email');
+const sidebarLogoutBtn = document.getElementById('sidebar-logout-btn');
+
+function openSidebar() {
+  sidebar?.classList.add('active');
+  sidebarOverlay?.classList.add('active');
+  hamburgerBtn?.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeSidebar() {
+  sidebar?.classList.remove('active');
+  sidebarOverlay?.classList.remove('active');
+  hamburgerBtn?.classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+// Sync sidebar nav visibility with desktop nav
+function syncSidebarNav() {
+  const navCreator = document.getElementById('nav-creator');
+  const navLeaderboard = document.getElementById('nav-leaderboard');
+  
+  if (navCreator?.classList.contains('hidden')) {
+    sidebarCreator?.classList.add('hidden');
+  } else {
+    sidebarCreator?.classList.remove('hidden');
+  }
+  
+  if (navLeaderboard?.classList.contains('hidden')) {
+    sidebarLeaderboard?.classList.add('hidden');
+  } else {
+    sidebarLeaderboard?.classList.remove('hidden');
+  }
+  
+  // Sync user info
+  const userInfo = document.getElementById('user-info');
+  const userEmail = document.getElementById('user-email');
+  if (userInfo && !userInfo.classList.contains('hidden')) {
+    sidebarUserInfo?.classList.add('active');
+    if (sidebarUserEmail && userEmail) {
+      sidebarUserEmail.textContent = userEmail.textContent;
+    }
+  } else {
+    sidebarUserInfo?.classList.remove('active');
+  }
+}
+
+hamburgerBtn?.addEventListener('click', openSidebar);
+sidebarOverlay?.addEventListener('click', closeSidebar);
+sidebarClose?.addEventListener('click', closeSidebar);
+
+// Close sidebar when clicking a link
+[sidebarCreator, sidebarLeaderboard].forEach(link => {
+  link?.addEventListener('click', () => {
+    closeSidebar();
+  });
+});
+
+// Sidebar logout
+sidebarLogoutBtn?.addEventListener('click', () => {
+  closeSidebar();
+  // Trigger the main logout
+  document.getElementById('logout-btn')?.click();
+});
+
+// Sync on page load and observe changes
+syncSidebarNav();
+
+// Use MutationObserver to keep sidebar in sync
+const navCreatorEl = document.getElementById('nav-creator');
+if (navCreatorEl) {
+  const observer = new MutationObserver(syncSidebarNav);
+  observer.observe(navCreatorEl, { attributes: true, attributeFilter: ['class'] });
+}
+
+const userInfoEl = document.getElementById('user-info');
+if (userInfoEl) {
+  const observer = new MutationObserver(syncSidebarNav);
+  observer.observe(userInfoEl, { attributes: true, attributeFilter: ['class'] });
+}
 
 // Start
 init();

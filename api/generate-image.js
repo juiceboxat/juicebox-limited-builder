@@ -3,6 +3,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import sharp from 'sharp';
+import { JUICEBOX_LOGO } from './reference-images.js';
 
 const supabaseUrl = 'https://rpqbjfbkrkgnrebcysta.supabase.co';
 const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
@@ -105,20 +106,21 @@ export default async function handler(req, res) {
 
     const prompt = `Generate a SMALL 512x512 image: Product poster for JuiceBox "${name}" Limited Edition.
 
+I'm attaching the JuiceBox Limited logo as a reference image. Please incorporate this logo prominently at the TOP of the generated image.
+
 Simple composition:
-- "JuiceBox Limited" text at TOP in white
+- The attached "JuiceBox Limited" logo at TOP (use the exact logo design from reference)
 - CENTER: Glass with ${beverageColor} beverage, ice cubes, splash
 - Garnishes: ${garnishes}
 - LARGE text below glass: "${name}"
 - Smaller text: "${componentsText}"
-- Bottom badge: "${typeText} ${variantText}"
 - Blurred summery background
 
 Keep it simple, clean typography, appetizing. Output size: 512x512 pixels.`;
 
     console.log('Generating image for:', name, '| Components:', componentsText);
 
-    // Call OpenRouter API with Gemini 3 Pro Image (text only for now)
+    // Call OpenRouter API with Gemini 3 Pro Image (with logo reference)
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -132,7 +134,10 @@ Keep it simple, clean typography, appetizing. Output size: 512x512 pixels.`;
         messages: [
           {
             role: 'user',
-            content: prompt
+            content: [
+              { type: 'text', text: prompt },
+              { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${JUICEBOX_LOGO}` } }
+            ]
           }
         ],
       }),

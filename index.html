@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>JuiceBox Limited - Kreiere deine Sorte!</title>
   <meta name="description" content="Kreiere deine eigene JuiceBox Limited Edition und stimme für deine Favoriten!">
-  <link rel="icon" type="image/png" href="https://juicebox.at/cdn/shop/files/logo_6671df5b-a1df-4b13-a452-8187be72c249.png">
+  <link rel="icon" type="image/png" href="https://juicebox.at/cdn/shop/files/favicon_a31ebfc1-9350-447d-bf26-311feb225e22.png?v=1614178492">
+  <link rel="apple-touch-icon" href="https://juicebox.at/cdn/shop/files/favicon_a31ebfc1-9350-447d-bf26-311feb225e22.png?v=1614178492">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -47,32 +48,72 @@
 
     <!-- Top Navigation -->
     <nav class="top-nav">
-      <a href="https://juicebox.at" target="_blank" class="nav-link">🏠 JuiceBox Shop</a>
-      <a href="#" id="nav-leaderboard" class="nav-link">🏆 Bestenliste</a>
-    </nav>
-
-    <!-- Header -->
-    <header class="header">
-      <div class="header-bg"></div>
-      <div class="floating-fruits">
-        <span class="fruit">🍓</span>
-        <span class="fruit">🍊</span>
-        <span class="fruit">🍋</span>
-        <span class="fruit">🥭</span>
-        <span class="fruit">🍇</span>
-        <span class="fruit">🍑</span>
+      <!-- Hamburger Menu (mobile only) -->
+      <button class="hamburger" id="hamburger-btn" aria-label="Menü öffnen">
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
+      </button>
+      
+      <div class="nav-brand">
+        <img src="https://cdn.shopify.com/s/files/1/0512/4289/3477/files/juicebox-limited-logo-white.png?v=1769962416" alt="JuiceBox Limited" class="nav-logo">
+        <span class="nav-tagline">✨ Deine Sorte. Dein Vote. Dein Sieg!</span>
       </div>
-      <div class="container">
-        <div class="header-content">
-          <img src="https://cdn.shopify.com/s/files/1/0512/4289/3477/files/juicebox-limited-logo-white.png?v=1769962416" alt="JuiceBox Limited" class="limited-logo">
-          <p class="tagline">✨ Deine Sorte. Dein Vote. Dein Sieg! ✨</p>
+      
+      <!-- Desktop Nav Links -->
+      <div class="nav-links nav-links-desktop">
+        <a href="https://juicebox.at" target="_blank" class="nav-link">🏠 Shop</a>
+        <a href="/" id="nav-creator" class="nav-link hidden">🧃 Limited Builder</a>
+        <a href="/bestenliste" id="nav-leaderboard" class="nav-link">🏆 Bestenliste</a>
+        <div id="user-info" class="user-info hidden">
+          <span class="user-email" id="user-email">user@email.com</span>
+          <button class="btn-logout" id="logout-btn" title="Ausloggen">🚪</button>
         </div>
       </div>
-    </header>
+    </nav>
+    
+    <!-- Mobile Sidebar -->
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <img src="https://cdn.shopify.com/s/files/1/0512/4289/3477/files/juicebox-limited-logo-white.png?v=1769962416" alt="JuiceBox Limited" class="sidebar-logo">
+        <button class="sidebar-close" id="sidebar-close" aria-label="Menü schließen">✕</button>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="https://juicebox.at" target="_blank" class="sidebar-link">🏠 Shop</a>
+        <a href="/" id="sidebar-creator" class="sidebar-link hidden">🧃 Limited Builder</a>
+        <a href="/bestenliste" id="sidebar-leaderboard" class="sidebar-link">🏆 Bestenliste</a>
+      </nav>
+      <div class="sidebar-user" id="sidebar-user-info">
+        <span class="sidebar-user-email" id="sidebar-user-email">user@email.com</span>
+        <button class="btn-logout sidebar-logout" id="sidebar-logout-btn" title="Ausloggen">🚪 Ausloggen</button>
+      </div>
+    </aside>
 
     <!-- Create Section - Wizard Style -->
     <section id="create-section" class="section active">
       <div class="container">
+        <!-- Already Created Overlay (shown if user has a creation) -->
+        <div id="already-created-section" class="already-created-section hidden">
+          <div class="already-created-card glass-card">
+            <div class="already-created-badge">✨ Deine Kreation</div>
+            <div class="already-created-image" id="already-created-image">
+              <span class="already-created-emoji" id="already-created-emoji">🧃</span>
+            </div>
+            <h2 class="already-created-name" id="already-created-name">Deine Limited Edition</h2>
+            <p class="already-created-details" id="already-created-details">-</p>
+            <div class="already-created-stats">
+              <span class="already-created-votes" id="already-created-votes">0 👍</span>
+              <span class="already-created-rank" id="already-created-rank">#-</span>
+            </div>
+            <p class="already-created-info">Du hast bereits eine Limited Edition erstellt. Möchtest du eine neue erstellen?</p>
+            <div class="already-created-actions">
+              <button class="btn btn-secondary" id="already-created-leaderboard">🏆 Zur Bestenliste</button>
+              <button class="btn btn-danger" id="already-created-delete">🗑️ Löschen & Neu erstellen</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Glass Preview (Always Visible) -->
         <div class="glass-preview-container glass-card">
           <!-- Progress Indicator (over glass) -->
@@ -286,13 +327,13 @@
           <!-- Starter Set Pitch -->
           <div class="success-starter-set glass-card">
             <div class="starter-set-header">
-              <span class="starter-set-badge">🎁 Exklusiv-Tipp</span>
-              <span class="starter-set-savings">Spare 33%</span>
+              <span class="starter-set-badge">😱 Exklusives Angebot</span>
+              <span class="starter-set-savings">-33%</span>
             </div>
-            <img src="https://cdn.shopify.com/s/files/1/0512/4289/3477/files/starter_set_menu.webp?v=1767295011" alt="JuiceBox Starter Set" class="starter-set-image">
-            <h3>Dein Geschmack wartet schon auf dich!</h3>
+            <h3>Für dich: 😱 Spare heute 29,60€!</h3>
+            <img src="https://cdn.shopify.com/s/files/1/0512/4289/3477/files/jb_starterset_produkbilder_06_set_uebersicht_Kopie_f77fe6b3-a097-448f-9faf-7ef525fc8680.webp?v=1752749086" alt="JuiceBox Starter Set" class="starter-set-image">
             <p class="starter-set-pitch" id="starter-set-pitch">
-              <strong id="similar-flavor">Deine Lieblingssorte</strong> gibt's auch im JuiceBox Starter Set — wähl sie einfach aus und genieß sie sofort zuhause!
+              Die Sorte <strong id="similar-flavor">XY</strong> ist sehr ähnlich wie deine erstellte Limited Sorte, du kannst sie dir jetzt im Starterset sichern und jetzt 33% sparen!
             </p>
             <div class="starter-set-highlights">
               <div class="highlight-item">
@@ -356,7 +397,26 @@
               <button class="btn btn-share" id="share-creation-btn">
                 <span>🔗 Link kopieren</span>
               </button>
+              <button class="btn btn-delete-creation" id="delete-creation-btn">
+                <span>🗑️ Löschen</span>
+              </button>
             </div>
+          </div>
+        </div>
+
+        <!-- Challenge Stats Banner -->
+        <div class="challenge-stats-banner glass-card">
+          <div class="stat-item countdown">
+            <span class="stat-icon">⏰</span>
+            <span class="stat-text">Challenge endet in <strong id="countdown-days">14</strong> Tagen</span>
+          </div>
+          <div class="stat-item participants">
+            <span class="stat-icon">👥</span>
+            <span class="stat-text"><strong id="total-creations">0</strong> Kreationen</span>
+          </div>
+          <div class="stat-item votes-today">
+            <span class="stat-icon">🔥</span>
+            <span class="stat-text"><strong id="total-votes">0</strong> Votes insgesamt</span>
           </div>
         </div>
 
@@ -368,9 +428,18 @@
             <p class="vote-info-small">Die Sorte mit den meisten Votes wird produziert. Du kannst nicht für deine eigene Kreation stimmen.</p>
           </div>
           <div class="view-toggle">
-            <button class="view-btn" data-view="list" title="Liste">📋</button>
-            <button class="view-btn active" data-view="grid-2" title="2er Grid">🔲</button>
-            <button class="view-btn" data-view="grid-1" title="1er Grid">▪️</button>
+            <button class="view-btn" data-view="list" title="Listenansicht">
+              <span class="view-icon">📋</span>
+              <span class="view-label">Liste</span>
+            </button>
+            <button class="view-btn active" data-view="grid-2" title="Mittlere Ansicht">
+              <span class="view-icon">⊞</span>
+              <span class="view-label">Mittel</span>
+            </button>
+            <button class="view-btn" data-view="grid-1" title="1er Raster (groß)">
+              <span class="view-icon">◻️</span>
+              <span class="view-label">Groß</span>
+            </button>
           </div>
         </div>
         <div id="vote-cta-banner" class="vote-cta-banner">
@@ -473,6 +542,29 @@
         <div class="modal-buttons">
           <button class="modal-btn cancel" id="vote-email-cancel">Abbrechen</button>
           <button class="modal-btn confirm" id="vote-email-confirm" disabled>✅ Vote abgeben!</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Creation Modal -->
+    <div id="delete-creation-modal" class="modal hidden">
+      <div class="modal-content glass-card">
+        <div class="modal-emoji">⚠️</div>
+        <h3>Kreation löschen?</h3>
+        <p class="delete-warning">Bist du sicher, dass du deine Kreation <strong id="delete-creation-name">"Sortenname"</strong> unwiderruflich löschen möchtest?</p>
+        <p class="delete-info">❌ Alle Votes gehen verloren<br>❌ Du startest komplett neu</p>
+        
+        <div class="delete-confirm-checkbox">
+          <label class="checkbox-label">
+            <input type="checkbox" id="delete-confirm-check">
+            <span class="checkmark"></span>
+            <span>Ja, ich möchte meine Kreation unwiderruflich löschen</span>
+          </label>
+        </div>
+        
+        <div class="modal-buttons">
+          <button class="modal-btn cancel" id="delete-cancel">Abbrechen</button>
+          <button class="modal-btn confirm danger" id="delete-confirm" disabled>🗑️ Endgültig löschen</button>
         </div>
       </div>
     </div>
