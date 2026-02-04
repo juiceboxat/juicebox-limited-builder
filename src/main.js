@@ -1079,6 +1079,7 @@ async function loadCreationDetail(creationId) {
 }
 
 function displayCreationDetail(creation) {
+  console.log('displayCreationDetail called with:', creation);
   currentDetailCreation = creation;
   
   // Calculate rank
@@ -1137,9 +1138,17 @@ function displayCreationDetail(creation) {
   window.history.pushState({ creationId: creation.id }, '', `/creation/${creation.id}`);
   
   // Hide other sections, show detail (sections use .active class)
-  document.getElementById('vote-section').classList.remove('active');
-  document.getElementById('create-section')?.classList.remove('active');
-  document.getElementById('creation-detail-section').classList.add('active');
+  const voteSection = document.getElementById('vote-section');
+  const createSection = document.getElementById('create-section');
+  const detailSection = document.getElementById('creation-detail-section');
+  
+  console.log('Sections found:', { voteSection: !!voteSection, createSection: !!createSection, detailSection: !!detailSection });
+  
+  voteSection?.classList.remove('active');
+  createSection?.classList.remove('active');
+  detailSection?.classList.add('active');
+  
+  console.log('Detail section classes:', detailSection?.classList.toString());
   
   // Scroll to top
   window.scrollTo(0, 0);
@@ -1730,11 +1739,14 @@ function renderLeaderboard() {
   });
   
   // Add click handler for creation cards (to open detail page)
-  document.querySelectorAll('.creation-card.clickable').forEach(card => {
+  const clickableCards = document.querySelectorAll('.creation-card.clickable');
+  console.log('Found clickable cards:', clickableCards.length);
+  clickableCards.forEach(card => {
     card.addEventListener('click', (e) => {
       // Don't navigate if clicking on buttons
       if (e.target.closest('.vote-btn') || e.target.closest('.share-link-btn')) return;
       const creationId = card.dataset.creationId;
+      console.log('Card clicked, creationId:', creationId);
       showCreationDetail(creationId);
     });
   });
