@@ -2279,6 +2279,13 @@ voteEmailConfirm?.addEventListener('click', async () => {
     
     renderLeaderboard();
     updateVotedBanner();
+    
+    // Update detail page if viewing the voted creation
+    if (currentDetailCreation && currentDetailCreation.id === creationId) {
+      currentDetailCreation.votes_count = creation?.votes_count || (currentDetailCreation.votes_count + 1);
+      displayCreationDetail(currentDetailCreation);
+    }
+    
     showToast('👍 Stimme abgegeben!', 'success');
   } catch (error) {
     console.error('Vote error:', error);
