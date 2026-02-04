@@ -1177,44 +1177,56 @@ function setupCreationDetail() {
   // Share buttons
   document.getElementById('share-whatsapp')?.addEventListener('click', () => {
     if (!currentDetailCreation) return;
-    const url = `${window.location.origin}/creation/${currentDetailCreation.id}`;
-    const text = `Check diese JuiceBox Limited Edition: "${currentDetailCreation.name}"! 🧃`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`, '_blank');
+    const url = `https://create.juicebox.at/creation/${currentDetailCreation.id}`;
+    const text = `🧃 Check diese JuiceBox Limited Edition: "${currentDetailCreation.name}"!\n\nStimm ab und hilf mit, dass diese Sorte produziert wird! 👉 ${url}`;
+    // Use api.whatsapp.com for better mobile/desktop compatibility
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
   });
   
   document.getElementById('share-facebook')?.addEventListener('click', () => {
     if (!currentDetailCreation) return;
-    const url = `${window.location.origin}/creation/${currentDetailCreation.id}`;
-    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank');
+    const url = `https://create.juicebox.at/creation/${currentDetailCreation.id}`;
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(`🧃 Check "${currentDetailCreation.name}" bei JuiceBox Limited!`)}`, '_blank', 'width=600,height=400');
   });
   
   document.getElementById('share-twitter')?.addEventListener('click', () => {
     if (!currentDetailCreation) return;
-    const url = `${window.location.origin}/creation/${currentDetailCreation.id}`;
-    const text = `Check diese JuiceBox Limited Edition: "${currentDetailCreation.name}"! 🧃`;
-    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
+    const url = `https://create.juicebox.at/creation/${currentDetailCreation.id}`;
+    const text = `🧃 Check diese JuiceBox Limited Edition: "${currentDetailCreation.name}"! Stimm ab! 👇`;
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank', 'width=600,height=400');
   });
   
   document.getElementById('share-telegram')?.addEventListener('click', () => {
     if (!currentDetailCreation) return;
-    const url = `${window.location.origin}/creation/${currentDetailCreation.id}`;
-    const text = `Check diese JuiceBox Limited Edition: "${currentDetailCreation.name}"! 🧃`;
+    const url = `https://create.juicebox.at/creation/${currentDetailCreation.id}`;
+    const text = `🧃 Check diese JuiceBox Limited Edition: "${currentDetailCreation.name}"! Stimm ab und hilf mit!`;
     window.open(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`, '_blank');
   });
   
   document.getElementById('share-email')?.addEventListener('click', () => {
     if (!currentDetailCreation) return;
-    const url = `${window.location.origin}/creation/${currentDetailCreation.id}`;
-    const subject = `JuiceBox Limited: ${currentDetailCreation.name}`;
-    const body = `Hey! Check diese JuiceBox Limited Edition: "${currentDetailCreation.name}"!\n\n${url}`;
-    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const url = `https://create.juicebox.at/creation/${currentDetailCreation.id}`;
+    const subject = `🧃 JuiceBox Limited: ${currentDetailCreation.name}`;
+    const body = `Hey!\n\nSchau dir diese JuiceBox Limited Edition an: "${currentDetailCreation.name}"!\n\nStimm ab und hilf mit, dass diese Sorte produziert wird:\n${url}\n\n🧃 JuiceBox Limited - Deine Sorte. Dein Vote. Dein Sieg!`;
+    window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
   });
   
   document.getElementById('share-copy')?.addEventListener('click', async () => {
     if (!currentDetailCreation) return;
-    const url = `${window.location.origin}/creation/${currentDetailCreation.id}`;
-    await copyToClipboard(url);
-    showToast('Link kopiert! 📋', 'success');
+    const url = `https://create.juicebox.at/creation/${currentDetailCreation.id}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast('Link kopiert! 📋', 'success');
+    } catch (err) {
+      // Fallback
+      const input = document.createElement('input');
+      input.value = url;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      document.body.removeChild(input);
+      showToast('Link kopiert! 📋', 'success');
+    }
   });
   
   document.getElementById('copy-url-btn')?.addEventListener('click', async () => {
