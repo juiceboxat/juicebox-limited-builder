@@ -3086,3 +3086,20 @@ body {
   color: var(--primary);
   font-size: 1.3rem;
 }
+
+/* Voted Badge on Detail Page */
+.voted-badge {
+  margin-top: var(--space-md);
+  padding: var(--space-sm) var(--space-lg);
+  background: linear-gradient(135deg, var(--success), #16a34a);
+  color: white;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  font-size: 1rem;
+  display: inline-block;
+}
+
+.btn-vote-detail.voted {
+  background: var(--success) !important;
+  cursor: default;
+}

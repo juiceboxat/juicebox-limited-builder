@@ -1129,6 +1129,34 @@ function displayCreationDetail(creation) {
   
   detailVotes.textContent = creation.votes_count || 0;
   
+  // Check if user voted for this creation
+  const votedForId = localStorage.getItem('juicebox-voted-for');
+  const isVotedFor = votedForId === creation.id;
+  const voteDetailBtn = document.getElementById('vote-detail-btn');
+  const votedBadge = document.getElementById('detail-voted-badge');
+  
+  if (isVotedFor) {
+    // Show voted state
+    if (voteDetailBtn) {
+      voteDetailBtn.textContent = '✅ Du hast für diese Sorte gestimmt';
+      voteDetailBtn.classList.add('voted');
+      voteDetailBtn.disabled = true;
+    }
+    if (votedBadge) {
+      votedBadge.classList.remove('hidden');
+    }
+  } else {
+    // Show normal vote button
+    if (voteDetailBtn) {
+      voteDetailBtn.textContent = '👍 Für diese Sorte voten';
+      voteDetailBtn.classList.remove('voted');
+      voteDetailBtn.disabled = false;
+    }
+    if (votedBadge) {
+      votedBadge.classList.add('hidden');
+    }
+  }
+  
   // Set share URL
   const shareUrl = `${window.location.origin}/creation/${creation.id}`;
   shareUrlInput.value = shareUrl;
