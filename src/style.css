@@ -3044,12 +3044,14 @@ body {
 /* Vote Section on Detail Page */
 .vote-section-detail {
   text-align: center;
-  margin-bottom: var(--space-xl);
+  margin-top: var(--space-lg);
 }
 
 .btn-vote-detail {
   padding: var(--space-md) var(--space-xl);
   font-size: 1.1rem;
+  width: 100%;
+  max-width: 300px;
 }
 
 /* Clickable card cursor */
