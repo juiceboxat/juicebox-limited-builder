@@ -1,8 +1,9 @@
 {
   "rewrites": [
-    { "source": "/bestenliste", "destination": "/" },
-    { "source": "/leaderboard", "destination": "/" },
-    { "source": "/erstellen", "destination": "/" },
+    { "source": "/", "destination": "/api/og-main" },
+    { "source": "/bestenliste", "destination": "/api/og-main" },
+    { "source": "/leaderboard", "destination": "/api/og-main" },
+    { "source": "/erstellen", "destination": "/api/og-main" },
     { "source": "/creation/:id", "destination": "/api/creation/:id" }
   ]
 }
