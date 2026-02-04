@@ -1136,18 +1136,18 @@ function displayCreationDetail(creation) {
   // Update URL without reload
   window.history.pushState({ creationId: creation.id }, '', `/creation/${creation.id}`);
   
-  // Hide other sections, show detail
-  document.getElementById('vote-section').classList.add('hidden');
-  document.getElementById('create-section')?.classList.add('hidden');
-  document.getElementById('creation-detail-section').classList.remove('hidden');
+  // Hide other sections, show detail (sections use .active class)
+  document.getElementById('vote-section').classList.remove('active');
+  document.getElementById('create-section')?.classList.remove('active');
+  document.getElementById('creation-detail-section').classList.add('active');
   
   // Scroll to top
   window.scrollTo(0, 0);
 }
 
 function hideCreationDetail() {
-  document.getElementById('creation-detail-section').classList.add('hidden');
-  document.getElementById('vote-section').classList.remove('hidden');
+  document.getElementById('creation-detail-section').classList.remove('active');
+  document.getElementById('vote-section').classList.add('active');
   
   // Update URL back to leaderboard
   window.history.pushState({}, '', '/bestenliste');
