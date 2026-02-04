@@ -51,6 +51,12 @@ const state = {
   offset: 0,
   limit: 10,
   justCreatedId: null, // ID of the creation just submitted (for highlighting)
+  // Filters
+  filters: {
+    flavor: '',
+    accent: '',
+    variant: '',
+  },
 };
 
 // DOM Elements
@@ -184,6 +190,7 @@ async function init() {
   setupSuccessPageListeners();
   setupUserInfo();
   setupAlreadyCreatedSection();
+  setupFilters();
   updatePreview();
   updatePrimaryCounter();
   
@@ -1025,6 +1032,66 @@ async function copyToClipboard(text) {
   }
 }
 
+// Setup Filters
+function setupFilters() {
+  const filterToggle = document.getElementById('filter-toggle');
+  const filterPanel = document.getElementById('filter-panel');
+  const filterFlavor = document.getElementById('filter-flavor');
+  const filterAccent = document.getElementById('filter-accent');
+  const filterVariant = document.getElementById('filter-variant');
+  const filterReset = document.getElementById('filter-reset');
+  const filterCount = document.getElementById('filter-count');
+  
+  if (!filterToggle || !filterPanel) return;
+  
+  // Populate flavor options
+  primaryFlavors.forEach(f => {
+    const option = document.createElement('option');
+    option.value = f.id;
+    option.textContent = `${f.emoji} ${f.name}`;
+    filterFlavor.appendChild(option);
+  });
+  
+  // Toggle filter panel
+  filterToggle.addEventListener('click', () => {
+    filterPanel.classList.toggle('hidden');
+    filterToggle.classList.toggle('active');
+  });
+  
+  // Update filter count badge
+  function updateFilterCount() {
+    const count = Object.values(state.filters).filter(v => v !== '').length;
+    filterCount.textContent = count > 0 ? `(${count})` : '';
+    filterCount.classList.toggle('has-filters', count > 0);
+  }
+  
+  // Apply filters
+  function applyFilters() {
+    state.filters.flavor = filterFlavor.value;
+    state.filters.accent = filterAccent.value;
+    state.filters.variant = filterVariant.value;
+    state.offset = 0;
+    updateFilterCount();
+    loadCreations();
+  }
+  
+  // Filter event listeners
+  filterFlavor.addEventListener('change', applyFilters);
+  filterAccent.addEventListener('change', applyFilters);
+  filterVariant.addEventListener('change', applyFilters);
+  
+  // Reset filters
+  filterReset.addEventListener('click', () => {
+    filterFlavor.value = '';
+    filterAccent.value = '';
+    filterVariant.value = '';
+    state.filters = { flavor: '', accent: '', variant: '' };
+    state.offset = 0;
+    updateFilterCount();
+    loadCreations();
+  });
+}
+
 // Setup success page event listeners
 function setupSuccessPageListeners() {
   // Copy/Share link button - uses native share on mobile
@@ -1260,7 +1327,7 @@ async function loadCreations(append = false) {
       elements.leaderboard.innerHTML = '<div class="loading">Lädt...</div>';
     }
     
-    const creations = await getCreations(state.limit, state.offset);
+    const creations = await getCreations(state.limit, state.offset, state.filters);
     state.creations = append ? [...state.creations, ...creations] : creations;
     
     renderLeaderboard();

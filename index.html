@@ -441,6 +441,41 @@
               <span class="view-label">Groß</span>
             </button>
           </div>
+          
+          <!-- Filter Section -->
+          <div class="filter-section">
+            <button class="filter-toggle-btn" id="filter-toggle">
+              <span>🔍 Filter</span>
+              <span class="filter-count" id="filter-count"></span>
+            </button>
+            <div class="filter-panel hidden" id="filter-panel">
+              <div class="filter-group">
+                <label>🍓 Geschmack</label>
+                <select id="filter-flavor" class="filter-select">
+                  <option value="">Alle</option>
+                </select>
+              </div>
+              <div class="filter-group">
+                <label>⚡ Akzent</label>
+                <select id="filter-accent" class="filter-select">
+                  <option value="">Alle</option>
+                  <option value="none">Ohne Akzent</option>
+                  <option value="cola">🥤 Cola Bomb</option>
+                  <option value="energy">⚡ Energy</option>
+                  <option value="eistee">🧊 Eistee</option>
+                </select>
+              </div>
+              <div class="filter-group">
+                <label>💪 Variante</label>
+                <select id="filter-variant" class="filter-select">
+                  <option value="">Alle</option>
+                  <option value="original">🍬 Original</option>
+                  <option value="light">💪 Light</option>
+                </select>
+              </div>
+              <button class="filter-reset-btn" id="filter-reset">✕ Filter zurücksetzen</button>
+            </div>
+          </div>
         </div>
         <div id="vote-cta-banner" class="vote-cta-banner">
           <span>🗳️ Klicke auf eine Sorte um deine Stimme abzugeben!</span>

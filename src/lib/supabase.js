@@ -8,12 +8,30 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
 
 // API Functions
 
-export async function getCreations(limit = 20, offset = 0) {
-  const { data, error } = await supabase
+export async function getCreations(limit = 20, offset = 0, filters = {}) {
+  let query = supabase
     .from('creations')
     .select('*')
-    .order('votes_count', { ascending: false })
-    .range(offset, offset + limit - 1);
+    .order('votes_count', { ascending: false });
+  
+  // Apply filters
+  if (filters.flavor) {
+    query = query.ilike('primary_flavor', `%${filters.flavor}%`);
+  }
+  if (filters.accent) {
+    if (filters.accent === 'none') {
+      query = query.is('accent', null);
+    } else {
+      query = query.eq('accent', filters.accent);
+    }
+  }
+  if (filters.variant) {
+    query = query.eq('variant', filters.variant);
+  }
+  
+  query = query.range(offset, offset + limit - 1);
+  
+  const { data, error } = await query;
   
   if (error) throw error;
   return data;
