@@ -1,7 +1,7 @@
 // JuiceBox Limited Edition Builder - Main App
 
 import { fruits, extras, primaryFlavors, accents, variants, findBestMatch } from './data/flavors.js';
-import { supabase, getCreations, getCreationById, getCreationByEmail, createCreation, updateCreationImage, deleteCreation, voteForCreation, removeVote, getVisitorIp, hasVoted, generateCreationImage, getVotedCreationIds } from './lib/supabase.js';
+import { supabase, getCreations, getCreationById, getCreationByEmail, createCreation, updateCreationImage, deleteCreation, voteForCreation, removeVote, getVisitorIp, hasVoted, generateCreationImage, getVotedCreationIds, getTotalStats } from './lib/supabase.js';
 
 // Constants
 const MAX_PRIMARY_FLAVORS = 3;
@@ -1578,7 +1578,7 @@ async function loadCreations(append = false) {
 }
 
 // Update challenge stats banner
-function updateChallengeStats() {
+async function updateChallengeStats() {
   // Calculate days until challenge ends (example: Feb 28, 2026)
   const challengeEndDate = new Date('2026-02-28T23:59:59');
   const now = new Date();
@@ -1596,13 +1596,27 @@ function updateChallengeStats() {
     }
   }
   
-  if (totalCreationsEl) {
-    totalCreationsEl.textContent = state.creations.length;
-  }
-  
-  if (totalVotesEl) {
-    const totalVotes = state.creations.reduce((sum, c) => sum + (c.votes_count || 0), 0);
-    totalVotesEl.textContent = totalVotes;
+  // Fetch actual totals from database
+  try {
+    const { totalCreations, totalVotes } = await getTotalStats();
+    
+    if (totalCreationsEl) {
+      totalCreationsEl.textContent = totalCreations;
+    }
+    
+    if (totalVotesEl) {
+      totalVotesEl.textContent = totalVotes;
+    }
+  } catch (error) {
+    console.error('Error fetching stats:', error);
+    // Fallback to loaded creations
+    if (totalCreationsEl) {
+      totalCreationsEl.textContent = state.creations.length;
+    }
+    if (totalVotesEl) {
+      const totalVotes = state.creations.reduce((sum, c) => sum + (c.votes_count || 0), 0);
+      totalVotesEl.textContent = totalVotes;
+    }
   }
 }
 

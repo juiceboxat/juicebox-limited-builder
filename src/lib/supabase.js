@@ -8,6 +8,32 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
 
 // API Functions
 
+export async function getTotalStats() {
+  // Get total count of creations
+  const { count: totalCreations, error: countError } = await supabase
+    .from('creations')
+    .select('*', { count: 'exact', head: true });
+  
+  if (countError) {
+    console.error('Error getting total count:', countError);
+    return { totalCreations: 0, totalVotes: 0 };
+  }
+  
+  // Get sum of all votes
+  const { data, error: sumError } = await supabase
+    .from('creations')
+    .select('votes_count');
+  
+  if (sumError) {
+    console.error('Error getting votes sum:', sumError);
+    return { totalCreations: totalCreations || 0, totalVotes: 0 };
+  }
+  
+  const totalVotes = data?.reduce((sum, c) => sum + (c.votes_count || 0), 0) || 0;
+  
+  return { totalCreations: totalCreations || 0, totalVotes };
+}
+
 export async function getCreations(limit = 20, offset = 0, filters = {}) {
   let query = supabase
     .from('creations')
