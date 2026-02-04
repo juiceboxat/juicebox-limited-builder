@@ -1876,12 +1876,22 @@ async function confirmChangeVote() {
     localStorage.setItem('juicebox-voted-for', pendingChangeVoteToId);
     
     const newCreation = state.creations.find(c => c.id === pendingChangeVoteToId);
-    showToast(`Stimme geändert auf "${newCreation?.name}"! 🎉`, 'success');
+    const newCreationId = pendingChangeVoteToId;
     
     hideChangeVoteModal();
     
     // Reload to update UI
-    loadCreations();
+    await loadCreations();
+    
+    // Update detail page if viewing the new voted creation
+    if (currentDetailCreation && currentDetailCreation.id === newCreationId) {
+      const updatedCreation = state.creations.find(c => c.id === newCreationId);
+      if (updatedCreation) {
+        displayCreationDetail(updatedCreation);
+      }
+    }
+    
+    showToast(`Stimme geändert auf "${newCreation?.name}"! 🎉`, 'success');
     
   } catch (error) {
     console.error('Error changing vote:', error);
@@ -1940,6 +1950,13 @@ async function confirmVote() {
     
     renderLeaderboard();
     updateVotedBanner();
+    
+    // Update detail page if viewing the voted creation
+    if (currentDetailCreation && currentDetailCreation.id === creationId) {
+      currentDetailCreation.votes_count = creation?.votes_count || (currentDetailCreation.votes_count + 1);
+      displayCreationDetail(currentDetailCreation);
+    }
+    
     showToast('👍 Stimme abgegeben!', 'success');
   } catch (error) {
     console.error('Vote error:', error);
