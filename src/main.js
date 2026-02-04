@@ -297,19 +297,9 @@ function switchTab(tabId, updateUrl = true) {
     }
   }
   
-  // Update navigation links visibility
-  const navCreator = document.getElementById('nav-creator');
-  const navLeaderboard = document.getElementById('nav-leaderboard');
-  
+  // Load creations when switching to vote tab
   if (tabId === 'vote') {
-    // On leaderboard: show Creator link, hide Leaderboard link
-    navCreator?.classList.remove('hidden');
-    navLeaderboard?.classList.add('hidden');
     loadCreations();
-  } else {
-    // On creator/success: show Leaderboard link, hide Creator link
-    navCreator?.classList.add('hidden');
-    navLeaderboard?.classList.remove('hidden');
   }
 }
 
@@ -326,12 +316,6 @@ function handleHashRoute() {
     switchTab('vote', false);
     return true;
   }
-  
-  // Default: on creator page, ensure nav is correct
-  const navCreator = document.getElementById('nav-creator');
-  const navLeaderboard = document.getElementById('nav-leaderboard');
-  navCreator?.classList.add('hidden');
-  navLeaderboard?.classList.remove('hidden');
   
   return false;
 }
@@ -2357,21 +2341,6 @@ function closeSidebar() {
 
 // Sync sidebar nav visibility with desktop nav
 function syncSidebarNav() {
-  const navCreator = document.getElementById('nav-creator');
-  const navLeaderboard = document.getElementById('nav-leaderboard');
-  
-  if (navCreator?.classList.contains('hidden')) {
-    sidebarCreator?.classList.add('hidden');
-  } else {
-    sidebarCreator?.classList.remove('hidden');
-  }
-  
-  if (navLeaderboard?.classList.contains('hidden')) {
-    sidebarLeaderboard?.classList.add('hidden');
-  } else {
-    sidebarLeaderboard?.classList.remove('hidden');
-  }
-  
   // Sync user info
   const userInfo = document.getElementById('user-info');
   const userEmail = document.getElementById('user-email');
