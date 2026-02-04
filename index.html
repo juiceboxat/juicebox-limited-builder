@@ -35,8 +35,9 @@
       const isCreationDetail = path.startsWith('/creation/');
       
       if (isLeaderboard || isCreationDetail) {
-        // Add style to hide create-section and show vote/detail section
+        // Add style with ID so we can remove it later
         const style = document.createElement('style');
+        style.id = 'initial-route-style';
         style.textContent = `
           #welcome-screen { display: none !important; }
           #create-section { display: none !important; }
@@ -44,6 +45,14 @@
           ${isCreationDetail ? '#creation-detail-section { display: block !important; }' : ''}
         `;
         document.head.appendChild(style);
+        
+        // Remove the override styles once the app is ready
+        window.addEventListener('DOMContentLoaded', () => {
+          setTimeout(() => {
+            const overrideStyle = document.getElementById('initial-route-style');
+            if (overrideStyle) overrideStyle.remove();
+          }, 100);
+        });
       }
     })();
   </script>
