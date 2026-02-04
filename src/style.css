@@ -1198,17 +1198,19 @@ body {
 
 .leaderboard.view-list .creation-wrapper {
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
+  width: 100%;
 }
 
 .leaderboard.view-list .creation-rank {
   margin-bottom: var(--space-sm);
+  align-self: flex-start;
 }
 
 .leaderboard.view-list .creation-card {
   display: flex;
   flex-direction: row;
-  flex: 1;
+  width: 100%;
 }
 
 .leaderboard.view-list .creation-image-wrapper {
