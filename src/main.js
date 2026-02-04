@@ -710,15 +710,21 @@ async function processCreation() {
       // Continue even if image fails
     }
     
-    // Hide overlay and show success page
-    console.log('Hiding overlay, showing success page...');
+    // Hide overlay and go to creation detail page
+    console.log('Hiding overlay, going to creation page...');
     stopProgress();
     setTimeout(() => {
       elements.generationOverlay.classList.add('hidden');
     }, 500);
     
-    // Show success section with creation details
-    showSuccessPage(creation, selectedFlavors, accent);
+    // Add creation to state for display
+    state.creations.unshift(creation);
+    
+    // Navigate directly to the creation detail page
+    setTimeout(() => {
+      displayCreationDetail(creation);
+      showToast('🎉 Deine Kreation wurde erstellt!', 'success');
+    }, 600);
     console.log('Done!');
     
   } catch (error) {
