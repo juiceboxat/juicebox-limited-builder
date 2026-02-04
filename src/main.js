@@ -1165,6 +1165,9 @@ function hideCreationDetail() {
   window.history.pushState({}, '', '/bestenliste');
   
   currentDetailCreation = null;
+  
+  // Load creations for the leaderboard
+  loadCreations();
 }
 
 function setupCreationDetail() {
