@@ -1660,7 +1660,7 @@ function renderLeaderboard() {
     // state.votedFor contains all votes by this IP (from DB), but we only show ONE as "voted"
     const voted = c.id === votedForId;
     const isOwn = c.id === ownCreationId || c.id === state.justCreatedId;
-    const rank = state.offset + i + 1;
+    const rank = i + 1;  // rank is just the position in the sorted array
     const isTop3 = rank <= 3;
     const isJustCreated = c.id === state.justCreatedId;
     const isSharedHighlight = c.id === highlightSharedId;
