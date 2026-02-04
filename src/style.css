@@ -1,5 +1,10 @@
 /* JuiceBox Limited - Modern Fun Design */
 
+/* Utility Classes */
+.hidden {
+  display: none !important;
+}
+
 :root {
   --primary: #72A527;
   --primary-dark: #5a8a1f;
