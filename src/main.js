@@ -1373,27 +1373,32 @@ function renderLeaderboard() {
       hideVoteButton = true;
     }
     
+    const shareUrl = `${window.location.origin}/bestenliste?creation=${c.id}`;
+    
     return `
-      <div class="creation-card ${c.image_url ? 'has-image' : ''} ${isJustCreated || isSharedHighlight ? 'highlighted' : ''}">
-        <div class="creation-image-wrapper">
-          <div class="creation-rank ${isTop3 ? 'top-3' : ''}">${isJustCreated || isSharedHighlight ? '✨' : '#' + rank}</div>
-          ${c.image_url 
-            ? `<img src="${c.image_url}" alt="${c.name}" class="creation-image" loading="lazy">`
-            : `<div class="creation-emoji">${emoji}</div>`
-          }
-        </div>
-        <div class="creation-body">
-          <div class="creation-info">
-            <div class="creation-name">${c.name}${yourBadge}</div>
-            <div class="creation-details">${details} • ${variantBadge}</div>
+      <div class="creation-wrapper">
+        <div class="creation-rank ${isTop3 ? 'top-3' : ''}">${isJustCreated || isSharedHighlight ? '✨' : '#' + rank}</div>
+        <div class="creation-card ${c.image_url ? 'has-image' : ''} ${isJustCreated || isSharedHighlight ? 'highlighted' : ''}">
+          <div class="creation-image-wrapper">
+            ${c.image_url 
+              ? `<img src="${c.image_url}" alt="${c.name}" class="creation-image" loading="lazy">`
+              : `<div class="creation-emoji">${emoji}</div>`
+            }
           </div>
-          <div class="creation-vote">
-            <span class="vote-count">${c.votes_count} 👍</span>
-            ${hideVoteButton ? '' : `
-              <button class="vote-btn ${voteButtonClass}" data-id="${c.id}" ${voteButtonDisabled ? 'disabled' : ''}>
-                ${voteButtonText}
-              </button>
-            `}
+          <div class="creation-body">
+            <div class="creation-info">
+              <div class="creation-name">${c.name}${yourBadge}</div>
+              <div class="creation-details">${details} • ${variantBadge}</div>
+            </div>
+            <div class="creation-vote">
+              <span class="vote-count">${c.votes_count} 👍</span>
+              <button class="share-link-btn" data-url="${shareUrl}" title="Link kopieren">🔗</button>
+              ${hideVoteButton ? '' : `
+                <button class="vote-btn ${voteButtonClass}" data-id="${c.id}" ${voteButtonDisabled ? 'disabled' : ''}>
+                  ${voteButtonText}
+                </button>
+              `}
+            </div>
           </div>
         </div>
       </div>
@@ -1408,6 +1413,37 @@ function renderLeaderboard() {
   // Add remove vote listeners (for voted buttons)
   document.querySelectorAll('.vote-btn.voted').forEach(btn => {
     btn.addEventListener('click', () => showRemoveVoteConfirmation(btn.dataset.id));
+  });
+  
+  // Add share link button listeners
+  document.querySelectorAll('.share-link-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const url = btn.dataset.url;
+      try {
+        await navigator.clipboard.writeText(url);
+        btn.textContent = '✓';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = '🔗';
+          btn.classList.remove('copied');
+        }, 2000);
+      } catch (err) {
+        // Fallback for older browsers
+        const input = document.createElement('input');
+        input.value = url;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+        btn.textContent = '✓';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = '🔗';
+          btn.classList.remove('copied');
+        }, 2000);
+      }
+    });
   });
   
   // Update voted banner
