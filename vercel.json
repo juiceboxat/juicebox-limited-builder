@@ -3,6 +3,6 @@
     { "source": "/bestenliste", "destination": "/" },
     { "source": "/leaderboard", "destination": "/" },
     { "source": "/erstellen", "destination": "/" },
-    { "source": "/creation/:id", "destination": "/" }
+    { "source": "/creation/:id", "destination": "/api/creation/:id" }
   ]
 }

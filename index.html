@@ -5,6 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>JuiceBox Limited - Kreiere deine Sorte!</title>
   <meta name="description" content="Kreiere deine eigene JuiceBox Limited Edition und stimme für deine Favoriten!">
+  
+  <!-- Open Graph / Social Media -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://create.juicebox.at/">
+  <meta property="og:title" content="JuiceBox Limited - Kreiere deine Sorte!">
+  <meta property="og:description" content="Kreiere deine eigene JuiceBox Limited Edition und stimme für deine Favoriten!">
+  <meta property="og:image" content="https://cdn.shopify.com/s/files/1/0512/4289/3477/files/juicebox-limited-logo-white.png">
+  
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="JuiceBox Limited - Kreiere deine Sorte!">
+  <meta name="twitter:description" content="Kreiere deine eigene JuiceBox Limited Edition und stimme für deine Favoriten!">
+  <meta name="twitter:image" content="https://cdn.shopify.com/s/files/1/0512/4289/3477/files/juicebox-limited-logo-white.png">
+  
   <link rel="icon" type="image/png" href="https://juicebox.at/cdn/shop/files/favicon_a31ebfc1-9350-447d-bf26-311feb225e22.png?v=1614178492">
   <link rel="apple-touch-icon" href="https://juicebox.at/cdn/shop/files/favicon_a31ebfc1-9350-447d-bf26-311feb225e22.png?v=1614178492">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,6 +27,26 @@
   <link rel="stylesheet" href="/src/style.css">
 </head>
 <body>
+  <script>
+    // Immediate route detection to prevent flash
+    (function() {
+      const path = window.location.pathname.toLowerCase();
+      const isLeaderboard = path === '/bestenliste' || path === '/leaderboard';
+      const isCreationDetail = path.startsWith('/creation/');
+      
+      if (isLeaderboard || isCreationDetail) {
+        // Add style to hide create-section and show vote/detail section
+        const style = document.createElement('style');
+        style.textContent = `
+          #welcome-screen { display: none !important; }
+          #create-section { display: none !important; }
+          ${isLeaderboard ? '#vote-section { display: block !important; }' : ''}
+          ${isCreationDetail ? '#creation-detail-section { display: block !important; }' : ''}
+        `;
+        document.head.appendChild(style);
+      }
+    })();
+  </script>
   <div id="app">
     <!-- Welcome Screen -->
     <div id="welcome-screen" class="welcome-screen">
