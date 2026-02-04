@@ -495,6 +495,78 @@
       </div>
     </section>
 
+    <!-- Creation Detail Page -->
+    <section id="creation-detail-section" class="section hidden">
+      <div class="container">
+        <button class="back-btn" id="back-to-list">
+          ← Zurück zur Liste
+        </button>
+        
+        <div class="creation-detail-card glass-card">
+          <div class="creation-detail-image" id="detail-image">
+            <span class="creation-detail-emoji" id="detail-emoji">🧃</span>
+          </div>
+          
+          <div class="creation-detail-info">
+            <div class="creation-detail-rank" id="detail-rank">#1</div>
+            <h1 class="creation-detail-name" id="detail-name">Sortenname</h1>
+            <p class="creation-detail-ingredients" id="detail-ingredients">Zutaten</p>
+            <div class="creation-detail-badges">
+              <span class="badge variant-badge" id="detail-variant">💪 Light</span>
+              <span class="badge accent-badge" id="detail-accent"></span>
+            </div>
+            <div class="creation-detail-votes">
+              <span class="vote-count-big" id="detail-votes">0</span>
+              <span class="vote-label">Votes</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="share-section glass-card">
+          <h3>🔗 Teile diese Kreation</h3>
+          <p>Hilf mit, diese Sorte bekannt zu machen!</p>
+          
+          <div class="share-buttons-grid">
+            <button class="share-btn whatsapp" id="share-whatsapp">
+              <span class="share-icon">💬</span>
+              <span>WhatsApp</span>
+            </button>
+            <button class="share-btn facebook" id="share-facebook">
+              <span class="share-icon">📘</span>
+              <span>Facebook</span>
+            </button>
+            <button class="share-btn twitter" id="share-twitter">
+              <span class="share-icon">🐦</span>
+              <span>Twitter</span>
+            </button>
+            <button class="share-btn telegram" id="share-telegram">
+              <span class="share-icon">✈️</span>
+              <span>Telegram</span>
+            </button>
+            <button class="share-btn email" id="share-email">
+              <span class="share-icon">📧</span>
+              <span>E-Mail</span>
+            </button>
+            <button class="share-btn copy-link" id="share-copy">
+              <span class="share-icon">🔗</span>
+              <span>Link kopieren</span>
+            </button>
+          </div>
+          
+          <div class="share-url-box">
+            <input type="text" id="share-url-input" readonly>
+            <button class="copy-url-btn" id="copy-url-btn">📋 Kopieren</button>
+          </div>
+        </div>
+        
+        <div class="vote-section-detail">
+          <button class="btn btn-primary btn-vote-detail" id="vote-detail-btn">
+            👍 Für diese Sorte voten
+          </button>
+        </div>
+      </div>
+    </section>
+
     <!-- Toast Notifications -->
     <div id="toast" class="toast"></div>
 

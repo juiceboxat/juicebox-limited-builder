@@ -191,8 +191,14 @@ async function init() {
   setupUserInfo();
   setupAlreadyCreatedSection();
   setupFilters();
+  setupCreationDetail();
   updatePreview();
   updatePrimaryCounter();
+  
+  // Handle /creation/:id routes first
+  if (handleCreationRoute()) {
+    return; // Don't process other routes if we're showing a creation
+  }
   
   // Handle URL hash routing (e.g., #bestenliste)
   const hashHandled = handleHashRoute();
@@ -207,6 +213,19 @@ async function init() {
   
   // Listen for hash changes
   window.addEventListener('hashchange', () => handleHashRoute());
+  
+  // Handle browser back/forward
+  window.addEventListener('popstate', (e) => {
+    if (e.state?.creationId) {
+      showCreationDetail(e.state.creationId);
+    } else if (window.location.pathname === '/bestenliste' || window.location.pathname === '/') {
+      hideCreationDetail();
+    } else if (handleCreationRoute()) {
+      // Route handled
+    } else {
+      handleHashRoute();
+    }
+  });
 }
 
 // Render Flavor Grids
@@ -1032,6 +1051,203 @@ async function copyToClipboard(text) {
   }
 }
 
+// Creation Detail Page
+let currentDetailCreation = null;
+
+function showCreationDetail(creationId) {
+  const creation = state.creations.find(c => c.id === creationId);
+  if (!creation) {
+    // Try to load from API
+    loadCreationDetail(creationId);
+    return;
+  }
+  displayCreationDetail(creation);
+}
+
+async function loadCreationDetail(creationId) {
+  try {
+    const creation = await getCreationById(creationId);
+    if (creation) {
+      displayCreationDetail(creation);
+    } else {
+      showToast('Kreation nicht gefunden', 'error');
+    }
+  } catch (error) {
+    console.error('Error loading creation:', error);
+    showToast('Fehler beim Laden', 'error');
+  }
+}
+
+function displayCreationDetail(creation) {
+  currentDetailCreation = creation;
+  
+  // Calculate rank
+  const rank = state.creations.findIndex(c => c.id === creation.id) + 1;
+  
+  // Parse flavors
+  const flavorIds = creation.primary_flavor ? creation.primary_flavor.split(',') : [];
+  const selectedFlavors = flavorIds.map(id => primaryFlavors.find(f => f.id === id)).filter(Boolean);
+  const accent = accents.find(a => a.id === creation.accent);
+  
+  const emoji = selectedFlavors.length > 0 
+    ? selectedFlavors.map(f => f.emoji).join('')
+    : '🧃';
+  
+  const details = [
+    ...selectedFlavors.map(f => f.name),
+    accent && accent.id !== 'none' ? accent.name : null,
+  ].filter(Boolean).join(' + ');
+  
+  // Update detail page elements
+  const detailImage = document.getElementById('detail-image');
+  const detailEmoji = document.getElementById('detail-emoji');
+  const detailName = document.getElementById('detail-name');
+  const detailRank = document.getElementById('detail-rank');
+  const detailIngredients = document.getElementById('detail-ingredients');
+  const detailVariant = document.getElementById('detail-variant');
+  const detailAccent = document.getElementById('detail-accent');
+  const detailVotes = document.getElementById('detail-votes');
+  const shareUrlInput = document.getElementById('share-url-input');
+  
+  if (creation.image_url) {
+    detailImage.innerHTML = `<img src="${creation.image_url}" alt="${creation.name}" class="detail-img">`;
+  } else {
+    detailImage.innerHTML = `<span class="creation-detail-emoji">${emoji}</span>`;
+  }
+  
+  detailName.textContent = creation.name;
+  detailRank.textContent = rank > 0 ? `#${rank}` : '✨';
+  detailIngredients.textContent = details;
+  detailVariant.textContent = creation.variant === 'light' ? '💪 Light' : '🍬 Original';
+  
+  if (accent && accent.id !== 'none') {
+    detailAccent.textContent = `${accent.emoji} ${accent.name}`;
+    detailAccent.style.display = 'inline-block';
+  } else {
+    detailAccent.style.display = 'none';
+  }
+  
+  detailVotes.textContent = creation.votes_count || 0;
+  
+  // Set share URL
+  const shareUrl = `${window.location.origin}/creation/${creation.id}`;
+  shareUrlInput.value = shareUrl;
+  
+  // Update URL without reload
+  window.history.pushState({ creationId: creation.id }, '', `/creation/${creation.id}`);
+  
+  // Hide other sections, show detail
+  document.getElementById('vote-section').classList.add('hidden');
+  document.getElementById('create-section')?.classList.add('hidden');
+  document.getElementById('creation-detail-section').classList.remove('hidden');
+  
+  // Scroll to top
+  window.scrollTo(0, 0);
+}
+
+function hideCreationDetail() {
+  document.getElementById('creation-detail-section').classList.add('hidden');
+  document.getElementById('vote-section').classList.remove('hidden');
+  
+  // Update URL back to leaderboard
+  window.history.pushState({}, '', '/bestenliste');
+  
+  currentDetailCreation = null;
+}
+
+function setupCreationDetail() {
+  // Back button
+  document.getElementById('back-to-list')?.addEventListener('click', hideCreationDetail);
+  
+  // Share buttons
+  document.getElementById('share-whatsapp')?.addEventListener('click', () => {
+    if (!currentDetailCreation) return;
+    const url = `${window.location.origin}/creation/${currentDetailCreation.id}`;
+    const text = `Check diese JuiceBox Limited Edition: "${currentDetailCreation.name}"! 🧃`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`, '_blank');
+  });
+  
+  document.getElementById('share-facebook')?.addEventListener('click', () => {
+    if (!currentDetailCreation) return;
+    const url = `${window.location.origin}/creation/${currentDetailCreation.id}`;
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank');
+  });
+  
+  document.getElementById('share-twitter')?.addEventListener('click', () => {
+    if (!currentDetailCreation) return;
+    const url = `${window.location.origin}/creation/${currentDetailCreation.id}`;
+    const text = `Check diese JuiceBox Limited Edition: "${currentDetailCreation.name}"! 🧃`;
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
+  });
+  
+  document.getElementById('share-telegram')?.addEventListener('click', () => {
+    if (!currentDetailCreation) return;
+    const url = `${window.location.origin}/creation/${currentDetailCreation.id}`;
+    const text = `Check diese JuiceBox Limited Edition: "${currentDetailCreation.name}"! 🧃`;
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`, '_blank');
+  });
+  
+  document.getElementById('share-email')?.addEventListener('click', () => {
+    if (!currentDetailCreation) return;
+    const url = `${window.location.origin}/creation/${currentDetailCreation.id}`;
+    const subject = `JuiceBox Limited: ${currentDetailCreation.name}`;
+    const body = `Hey! Check diese JuiceBox Limited Edition: "${currentDetailCreation.name}"!\n\n${url}`;
+    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  });
+  
+  document.getElementById('share-copy')?.addEventListener('click', async () => {
+    if (!currentDetailCreation) return;
+    const url = `${window.location.origin}/creation/${currentDetailCreation.id}`;
+    await copyToClipboard(url);
+    showToast('Link kopiert! 📋', 'success');
+  });
+  
+  document.getElementById('copy-url-btn')?.addEventListener('click', async () => {
+    const input = document.getElementById('share-url-input');
+    await copyToClipboard(input.value);
+    showToast('Link kopiert! 📋', 'success');
+  });
+  
+  // Vote button on detail page
+  document.getElementById('vote-detail-btn')?.addEventListener('click', () => {
+    if (!currentDetailCreation) return;
+    showVoteConfirmation(currentDetailCreation.id);
+  });
+}
+
+// Handle /creation/:id routes
+function handleCreationRoute() {
+  const path = window.location.pathname;
+  const match = path.match(/^\/creation\/([a-f0-9-]+)$/i);
+  if (match) {
+    const creationId = match[1];
+    // Load creations first, then show detail
+    loadCreationsAndShowDetail(creationId);
+    return true;
+  }
+  return false;
+}
+
+async function loadCreationsAndShowDetail(creationId) {
+  try {
+    // Load creations for context
+    const creations = await getCreations(50, 0);
+    state.creations = creations;
+    
+    // Find or load the specific creation
+    const creation = creations.find(c => c.id === creationId);
+    if (creation) {
+      displayCreationDetail(creation);
+    } else {
+      // Try to load directly
+      await loadCreationDetail(creationId);
+    }
+  } catch (error) {
+    console.error('Error loading creation:', error);
+    showToast('Kreation nicht gefunden', 'error');
+  }
+}
+
 // Setup Filters
 function setupFilters() {
   const filterToggle = document.getElementById('filter-toggle');
@@ -1445,7 +1661,7 @@ function renderLeaderboard() {
     return `
       <div class="creation-wrapper">
         <div class="creation-rank ${isTop3 ? 'top-3' : ''}">${isJustCreated || isSharedHighlight ? '✨' : '#' + rank}</div>
-        <div class="creation-card ${c.image_url ? 'has-image' : ''} ${isJustCreated || isSharedHighlight ? 'highlighted' : ''}">
+        <div class="creation-card clickable ${c.image_url ? 'has-image' : ''} ${isJustCreated || isSharedHighlight ? 'highlighted' : ''}" data-creation-id="${c.id}">
           <div class="creation-image-wrapper">
             ${c.image_url 
               ? `<img src="${c.image_url}" alt="${c.name}" class="creation-image" loading="lazy">`
@@ -1510,6 +1726,16 @@ function renderLeaderboard() {
           btn.classList.remove('copied');
         }, 2000);
       }
+    });
+  });
+  
+  // Add click handler for creation cards (to open detail page)
+  document.querySelectorAll('.creation-card.clickable').forEach(card => {
+    card.addEventListener('click', (e) => {
+      // Don't navigate if clicking on buttons
+      if (e.target.closest('.vote-btn') || e.target.closest('.share-link-btn')) return;
+      const creationId = card.dataset.creationId;
+      showCreationDetail(creationId);
     });
   });
   
