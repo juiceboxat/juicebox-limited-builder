@@ -1079,7 +1079,6 @@ async function loadCreationDetail(creationId) {
 }
 
 function displayCreationDetail(creation) {
-  console.log('displayCreationDetail called with:', creation);
   currentDetailCreation = creation;
   
   // Calculate rank
@@ -1138,17 +1137,9 @@ function displayCreationDetail(creation) {
   window.history.pushState({ creationId: creation.id }, '', `/creation/${creation.id}`);
   
   // Hide other sections, show detail (sections use .active class)
-  const voteSection = document.getElementById('vote-section');
-  const createSection = document.getElementById('create-section');
-  const detailSection = document.getElementById('creation-detail-section');
-  
-  console.log('Sections found:', { voteSection: !!voteSection, createSection: !!createSection, detailSection: !!detailSection });
-  
-  voteSection?.classList.remove('active');
-  createSection?.classList.remove('active');
-  detailSection?.classList.add('active');
-  
-  console.log('Detail section classes:', detailSection?.classList.toString());
+  document.getElementById('vote-section')?.classList.remove('active');
+  document.getElementById('create-section')?.classList.remove('active');
+  document.getElementById('creation-detail-section')?.classList.add('active');
   
   // Scroll to top
   window.scrollTo(0, 0);
@@ -1462,6 +1453,12 @@ function setupSuccessPageListeners() {
       confirmBtn.textContent = '🗑️ Endgültig löschen';
     }
   });
+  
+  // Change vote modal cancel
+  document.getElementById('change-vote-cancel')?.addEventListener('click', hideChangeVoteModal);
+  
+  // Change vote modal confirm
+  document.getElementById('change-vote-confirm')?.addEventListener('click', confirmChangeVote);
 }
 
 // Reset wizard to start state
@@ -1739,14 +1736,11 @@ function renderLeaderboard() {
   });
   
   // Add click handler for creation cards (to open detail page)
-  const clickableCards = document.querySelectorAll('.creation-card.clickable');
-  console.log('Found clickable cards:', clickableCards.length);
-  clickableCards.forEach(card => {
+  document.querySelectorAll('.creation-card.clickable').forEach(card => {
     card.addEventListener('click', (e) => {
       // Don't navigate if clicking on buttons
       if (e.target.closest('.vote-btn') || e.target.closest('.share-link-btn')) return;
       const creationId = card.dataset.creationId;
-      console.log('Card clicked, creationId:', creationId);
       showCreationDetail(creationId);
     });
   });
@@ -1779,11 +1773,17 @@ function showVoteConfirmation(creationId) {
     return;
   }
   
-  // Check if user already voted
+  // Check if user already voted for a different creation
   const votedForId = localStorage.getItem('juicebox-voted-for');
-  if (votedForId) {
-    const votedCreation = state.creations.find(c => c.id === votedForId);
-    showToast(`Du hast bereits für "${votedCreation?.name || 'eine Sorte'}" gestimmt!`, 'error');
+  if (votedForId && votedForId !== creationId) {
+    // Show change vote modal
+    showChangeVoteModal(votedForId, creationId);
+    return;
+  }
+  
+  // If already voted for this one, just show info
+  if (votedForId === creationId) {
+    showToast('Du hast bereits für diese Sorte gestimmt! ✅', 'info');
     return;
   }
   
@@ -1800,6 +1800,65 @@ function showVoteConfirmation(creationId) {
     // Show regular vote confirmation
     elements.voteModalName.textContent = `"${creation.name}"`;
     elements.voteModal.classList.remove('hidden');
+  }
+}
+
+// Show change vote modal
+let pendingChangeVoteFromId = null;
+let pendingChangeVoteToId = null;
+
+function showChangeVoteModal(currentVoteId, newVoteId) {
+  const currentCreation = state.creations.find(c => c.id === currentVoteId);
+  const newCreation = state.creations.find(c => c.id === newVoteId);
+  
+  if (!currentCreation || !newCreation) return;
+  
+  pendingChangeVoteFromId = currentVoteId;
+  pendingChangeVoteToId = newVoteId;
+  
+  document.getElementById('change-vote-current').textContent = `"${currentCreation.name}"`;
+  document.getElementById('change-vote-new').textContent = `"${newCreation.name}"`;
+  document.getElementById('change-vote-modal').classList.remove('hidden');
+}
+
+function hideChangeVoteModal() {
+  document.getElementById('change-vote-modal').classList.add('hidden');
+  pendingChangeVoteFromId = null;
+  pendingChangeVoteToId = null;
+}
+
+async function confirmChangeVote() {
+  if (!pendingChangeVoteFromId || !pendingChangeVoteToId) return;
+  
+  const voterEmail = localStorage.getItem('juicebox-creator-email') || localStorage.getItem('juicebox-voter-email');
+  if (!voterEmail) {
+    showToast('Fehler: Keine E-Mail gefunden', 'error');
+    hideChangeVoteModal();
+    return;
+  }
+  
+  try {
+    // First remove old vote
+    await removeVote(pendingChangeVoteFromId, voterEmail);
+    
+    // Then add new vote
+    await voteForCreation(pendingChangeVoteToId, voterEmail);
+    
+    // Update localStorage
+    localStorage.setItem('juicebox-voted-for', pendingChangeVoteToId);
+    
+    const newCreation = state.creations.find(c => c.id === pendingChangeVoteToId);
+    showToast(`Stimme geändert auf "${newCreation?.name}"! 🎉`, 'success');
+    
+    hideChangeVoteModal();
+    
+    // Reload to update UI
+    loadCreations();
+    
+  } catch (error) {
+    console.error('Error changing vote:', error);
+    showToast('Fehler beim Ändern der Stimme', 'error');
+    hideChangeVoteModal();
   }
 }
 

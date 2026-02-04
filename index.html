@@ -675,6 +675,23 @@
         </div>
       </div>
     </div>
+
+    <!-- Change Vote Modal -->
+    <div id="change-vote-modal" class="modal hidden">
+      <div class="modal-content glass-card">
+        <div class="modal-emoji">🔄</div>
+        <h3>Stimme ändern?</h3>
+        <p>Du hast aktuell für</p>
+        <p class="modal-name" id="change-vote-current">"Aktuelle Sorte"</p>
+        <p>gestimmt.</p>
+        <p class="change-vote-question">Möchtest du deine Stimme ändern auf</p>
+        <p class="modal-name highlight" id="change-vote-new">"Neue Sorte"</p>
+        <div class="modal-buttons">
+          <button class="modal-btn cancel" id="change-vote-cancel">Nein, behalten</button>
+          <button class="modal-btn confirm" id="change-vote-confirm">✅ Ja, ändern!</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script type="module" src="/src/main.js"></script>

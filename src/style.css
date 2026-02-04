@@ -3075,3 +3075,14 @@ body {
     flex-direction: column;
   }
 }
+
+/* Change Vote Modal */
+.change-vote-question {
+  margin-top: var(--space-md);
+  color: var(--gray);
+}
+
+.modal-name.highlight {
+  color: var(--primary);
+  font-size: 1.3rem;
+}
