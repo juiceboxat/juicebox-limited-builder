@@ -1151,6 +1151,24 @@ function displayCreationDetail(creation) {
   const shareUrl = `${window.location.origin}/creation/${creation.id}`;
   shareUrlInput.value = shareUrl;
   
+  // Show starter set recommendation for own creation
+  const detailStarterSet = document.getElementById('detail-starter-set');
+  const detailSimilarFlavor = document.getElementById('detail-similar-flavor');
+  const detailCreationName = document.getElementById('detail-creation-name');
+  const ownCreationId = localStorage.getItem('jb-own-creation-id');
+  if (detailStarterSet) {
+    if (creation.id === ownCreationId) {
+      const flavorIds = selectedFlavors.map(f => f.id);
+      const accentId = accent?.id || 'none';
+      const matchedFlavor = findBestMatch(flavorIds, accentId);
+      if (detailSimilarFlavor) detailSimilarFlavor.textContent = matchedFlavor;
+      if (detailCreationName) detailCreationName.textContent = creation.name;
+      detailStarterSet.classList.remove('hidden');
+    } else {
+      detailStarterSet.classList.add('hidden');
+    }
+  }
+  
   // Update URL without reload
   window.history.pushState({ creationId: creation.id }, '', `/creation/${creation.id}`);
   
